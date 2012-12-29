@@ -1,10 +1,10 @@
 #include <stdbool.h>
 typedef struct SwitchConfig{
-	volatile int running;
-	volatile int enable;
-	volatile int pushBlockEvent;
-	volatile int mount;
-	volatile int blockByVid;
+	  int *running;
+	  int *enable;
+	  int *pushBlockEvent;
+	  int *mount;
+	  int *blockByVid;
 }SwitchConfig;
 
 SwitchConfig switchconfig;

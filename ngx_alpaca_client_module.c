@@ -81,7 +81,9 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 		init(ahlf, r);
 	}
 	if(ahlf->enable){
-		
+		if(procrequest(r) == 0){
+			return NGX_DECLINED;
+		}
 		r->headers_out.status = NGX_HTTP_OK;
 		r->headers_out.content_length_n = strlen(policyconfig.denyIPAddress[0]);
 		//r->headers_out.content_length_n = ahlf->ecdata.len - 1;
