@@ -11,7 +11,6 @@
 #include <zookeeper/zookeeper.h>
 #include "alpacaClient.h"
 #include "policyconfig.h"
-#define DEFAULTDENYRATE "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /><title>提示_大众点评网</title><style type=\"text/css\">html{{background:#f7f7f7;}}body{{background:#fff;color:#333;font-family:\"MicrosoftYaHei\",\"微软雅黑\",Verdana,Arial;margin:2em auto 0 auto;width:700px;padding:1em 2em;-moz-border-radius:11px;-khtml-border-radius:11px;-webkit-border-radius:11px;border-radius:11px;border:1px solid #dfdfdf;}}a{{color:#ccc;}}a:hover{{color:#d54e21;}}h1{{border-bottom:1px solid #dadada;clear:both;color:#666;margin:5px 0 5px 0;padding:0;padding-bottom:1px;}}form{{padding:8px;font-size:14px;line-height:18px;text-align:center;}}form input{{font-size:20px;font-weight:bold;}}form input.i{{width:190px;}}p{{margin-bottom:30px;}}div{{margin-bottom:8px;}}p.c{{color:#ccc;}}</style></head><body><h1 id=\"logo\" style=\"text-align: center\"><img alt=\"dianping.com\" src=\"http://i1.dpfile.com/s/img/logo.gif\" /></h1><form method=\"post\" action=\"/validcode\"><p>对不起，你访问的太快了，请输入验证码后继续浏览：</p><div><img  id=\"code\" src=\"/deny.code\" alt=\"验证码\" /></div><div> <input name=\"vode\" class=\"i\" type=\"text\" /><input type=\"submit\" value=\" 提 交 \" /><input type=\"hidden\" name=\"referer\" value=\"hupeng\" /></div><p class=\"c\">如果您(${0})经常碰到此情况，请与<a href=\"mailto:spam@dianping.com\">spam@dianping.com</a>联系，我们会尽快处理。</p></form><script type=\"text/javascript\" src=\"http://i2.dpfile.com/s/res/ga.js\"></script><script type=\"text/javascript\">var pageTracker = _gat._getTracker(\"UA-464026-1\");pageTracker._initData();pageTracker._trackPageview(\"firewall_deny_rate\");</script></body></html>"
 
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
@@ -74,41 +73,20 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 {
 	ngx_alpaca_client_loc_conf_t *ahlf;
 	ngx_int_t                  rc;
-	ngx_chain_t                *out;
+	ngx_chain_t                *out = NULL;
 
 	ahlf = ngx_http_get_module_loc_conf(r, ngx_alpaca_client_module);
 	if(ahlf->zh == NULL){
 		init(ahlf, r);
 	}
 	if(ahlf->enable){
-		if(procrequest(r) == 0){
+		if(doFilter(r, &out) == CONTEXTSTATUSNEEDNOTRESPONSE){
 			return NGX_DECLINED;
 		}
-		r->headers_out.status = NGX_HTTP_OK;
-		r->headers_out.content_length_n = strlen(policyconfig.denyIPAddress[0]);
-		//r->headers_out.content_length_n = ahlf->ecdata.len - 1;
 		rc = ngx_http_send_header(r);
-		if(rc == 0){
+		if(rc == NGX_ERROR){
+			return rc;
 		}
-		ngx_buf_t    *b;  
-		b = ngx_calloc_buf(r->pool);  
-		if (b == NULL) {  
-			return NGX_ERROR;  
-		} 
-		char *resbody = malloc(r->headers_out.content_length_n);
-		strcpy(resbody,policyconfig.denyIPAddress[0]);
-		b->pos = (u_char *) resbody;
-	      	//b->pos = ahlf->ecdata.data;	
-		b->last = b->pos + strlen(policyconfig.denyIPAddress[0]);  
-		//b->last = b->pos + ahlf->ecdata.len - 1;
-		b->memory = 1;  
-		b->last_buf = 1;  
-		out = ngx_alloc_chain_link(r->pool);  
-		if (out == NULL)  
-			return NGX_ERROR;  
-		out->buf = b;  
-		out->next = NULL;  
-		out->buf->last_buf = 1;  
 		return ngx_http_output_filter(r, out);
 	}else{
 		return NGX_DECLINED;

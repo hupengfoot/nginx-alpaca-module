@@ -1,6 +1,6 @@
 typedef struct ResponseMessageConfig{
-	volatile char* denyMessage;
-	volatile char* denyRateMessage;
+	char* denyMessage;
+	char* denyRateMessage;
 }ResponseMessageConfig;
 
 ResponseMessageConfig responsemessageconfig;

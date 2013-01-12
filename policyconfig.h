@@ -3,8 +3,14 @@ typedef struct {
 	char * value;
 }Pair;
 
+typedef struct{
+	Pair** list;
+	int len;
+}PairList;
+
 typedef struct {
 	char** list;
+	int len;
 }List;
 
 typedef struct {
@@ -12,29 +18,28 @@ typedef struct {
 	char* value;
 }Triple;
 
+typedef struct{
+	Triple** list;
+	int len;
+}TripleList;
+
+typedef struct{
+	List** list;
+	int len;
+}ListList;
+
 typedef struct {
-	char** acceptIPAddressPrefix;
-	int acceptIPAddressPrefix_len;
-	char** acceptHttpMethod;
-	int acceptHttpMethod_len;
-	char** denyUserAgent;
-	int denyUserAgent_len;
-	char** denyUserAgentPrefix;
-	int denyUserAgentPrefix_len;
-	char** denyIPAddress;
-	int denyIPAddress_len;
-	char** denyIPAddressPrefix;
-	int denyIPAddressPrefix_len;
-	Pair** denyIPAddressRate;
-	int denyIPAddressRate_len;
-	List** denyUserAgentContainAnd;
-	int denyUserAgentContainAnd_len;
-	Triple** denyIPVidRate;
-	int denyIPVidRate_len;
-	Pair** denyIPVidRateStr;
-	int denyIPVidRateStr_len;
-	Pair** denyNOVistorIDURL;
-	int denyNOVistorIDURL_len;
+	List* acceptIPAddressPrefix;
+	List* acceptHttpMethod;
+	List* denyUserAgent;
+	List* denyUserAgentPrefix;
+	List* denyIPAddress;
+	List* denyIPAddressPrefix;
+	PairList* denyIPAddressRate;
+	ListList* denyUserAgentContainAnd;
+	TripleList* denyIPVidRate;
+	PairList* denyIPVidRateStr;
+	PairList* denyNOVisitorIDURL;
 }PolicyConfig;
 
 PolicyConfig policyconfig;

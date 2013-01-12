@@ -236,6 +236,7 @@ static char *print_string_ptr(const char *str)
 }
 /* Invote print_string_ptr (which is useful) on an item. */
 static char *print_string(cJSON *item)	{return print_string_ptr(item->valuestring);}
+static char *print_string_key(cJSON *item)	{return print_string_ptr(item->string);}
 
 /* Predeclare these prototypes. */
 static const char *parse_value(cJSON *item,const char *value);
@@ -244,7 +245,7 @@ static const char *parse_array(cJSON *item,const char *value);
 static char *print_array(cJSON *item,int depth,int fmt);
 static const char *parse_object(cJSON *item,const char *value);
 static char *print_object(cJSON *item,int depth,int fmt);
-
+static char *print_key(cJSON *item,int depth,int fmt);
 /* Utility to jump whitespace and cr/lf */
 static const char *skip(const char *in) {while (in && *in && (unsigned char)*in<=32) in++; return in;}
 
@@ -261,6 +262,7 @@ cJSON *cJSON_Parse(const char *value)
 
 /* Render a cJSON item/entity/structure to text. */
 char *cJSON_Print(cJSON *item)				{return print_value(item,0,1);}
+char *cJSON_Print_key(cJSON *item)				{return print_key(item,0,1);}
 char *cJSON_PrintUnformatted(cJSON *item)	{return print_value(item,0,0);}
 
 /* Parser core - when encountering text, process appropriately. */
@@ -290,6 +292,22 @@ static char *print_value(cJSON *item,int depth,int fmt)
 		case cJSON_True:	out=cJSON_strdup("true"); break;
 		case cJSON_Number:	out=print_number(item);break;
 		case cJSON_String:	out=print_string(item);break;
+		case cJSON_Array:	out=print_array(item,depth,fmt);break;
+		case cJSON_Object:	out=print_object(item,depth,fmt);break;
+	}
+	return out;
+}
+static char *print_key(cJSON *item,int depth,int fmt)
+{
+	char *out=0;
+	if (!item) return 0;
+	switch ((item->type)&255)
+	{
+		case cJSON_NULL:	out=cJSON_strdup("null");	break;
+		case cJSON_False:	out=cJSON_strdup("false");break;
+		case cJSON_True:	out=cJSON_strdup("true"); break;
+		case cJSON_Number:	out=print_number(item);break;
+		case cJSON_String:	out=print_string_key(item);break;
 		case cJSON_Array:	out=print_array(item,depth,fmt);break;
 		case cJSON_Object:	out=print_object(item,depth,fmt);break;
 	}
