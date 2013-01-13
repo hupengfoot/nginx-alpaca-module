@@ -27,6 +27,7 @@
 #define ZOOKEEPERROUTE "/"
 #define DENYMESSAGEMAXLENTH 4096
 #define DEFAULT_BLOCK_MAX_LENTH 4096
+#define DEFAULT_HEARTBEAT_MAX_LENTH 8192
 #define TOKEN_KEY "alpaca-firewall-token"
 #define DEFAULT_SERVERROOT "http://192.168.26.38:8080"
 #define DEFAULT_SERVER_URL_BLOCK_EVENT "/clientManagement/dianping.firewall.server.blockevent"
@@ -38,11 +39,14 @@
 #define DEFAULT_CLIENT_HEARTBEAT_INTERVAL 180
 #define DEFAULT_CLIENT_URL_STATUS "/dianping.firewall.client.status"
 #define DEFAULT_CLIENT_URL_VALIDATECODE "/deny.code"
+#define ALPACA_CLIENT_VERSION "0.29"
+#define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
+
 
 pthread_mutex_t blockqueuelock;
 static zhandle_t *zh;
 static char* local_ip;
-static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl"}; 
+static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterIDRate","alpaca.policy.denyVisterID"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
@@ -78,7 +82,7 @@ cJSON* formatPairPP(Pair** key, int key_len);
 cJSON* formatListPP(List** key, int key_len);
 char* getResponseDenyMessage(Context *context);
 char* getResponseDenyRateMessage(Context *context);
-
+char* getNowLogTime();
 
 char* getHttpStatus(enum status s){
 	char* buf = malloc(sizeof(char) * 4);
@@ -95,7 +99,7 @@ void initBlockRequestQueue(){
 }
 
 int PairUrlEncode(Pair* httpParams, char* out){
- 	int len = PUSH_BLOCK_ARGS_NUM;
+	int len = PUSH_BLOCK_ARGS_NUM;
 	int isFirst = 1;
 	int p = 0;
 	int new_length = 0;
@@ -141,9 +145,9 @@ void sendFirewallHttpRequest(){
 	Pair* httpParams = blockQueuePoll();
 	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);
 	if(httpParams[8].key){
+		memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 		strcpy(httpParams[8].key, TOKEN_KEY);
 	}
-	memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);
 	if(urlbuf){
 		strcpy(urlbuf, commonconfig.serverBlockEventUrl);
@@ -153,7 +157,7 @@ void sendFirewallHttpRequest(){
 	httpParams[8].value = getmd5(urlbuf);
 	strcat(httpParams[8].value, "\0");
 	pthread_mutex_unlock(&blockqueuelock);
-	
+
 	if(PairUrlEncode(httpParams, out) == -1){
 		free(reqUrl);
 		free(out);
@@ -173,6 +177,91 @@ void sendFirewallHttpRequest(){
 	free(out);
 	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
 
+}
+
+void sendFirewallHeartbeatRequest(){
+	CURL *curl;
+	char *reqUrl = malloc(strlen(commonconfig.serverRoot) + strlen(commonconfig.serverHeartbeatUrl) + 1);
+	if(!reqUrl){
+		return;
+	}
+	char *out = malloc(DEFAULT_HEARTBEAT_MAX_LENTH);
+	if(!out){
+		return;
+	}
+	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
+	int paramnum = 3;
+	Pair* httpParams = malloc(sizeof(Pair)*paramnum);
+	httpParams[0].key = malloc(strlen("clientIP") + 1);
+	if(httpParams[0].key){
+		memset(httpParams[0].key, 0, strlen("clientIP") + 1);
+		strcpy(httpParams[0].key, "clientIP");
+	}
+	httpParams[0].value = malloc(strlen(local_ip) + 1);
+	if(httpParams[0].value){
+		memset(httpParams[0].value, 0, strlen(local_ip) +1);
+		strcpy(httpParams[0].value, local_ip);
+	}
+	httpParams[1].key = malloc(strlen("version") + 1);
+	if(httpParams[1].key){
+		memset(httpParams[1].key, 0, strlen("version") + 1);
+		strcpy(httpParams[1].key, "version");
+	}
+	httpParams[1].value = malloc(strlen(ALPACA_CLIENT_VERSION) + 1);
+	if(httpParams[1].value){
+		memset(httpParams[1].value, 0, strlen(ALPACA_CLIENT_VERSION) + 1);
+		strcpy(httpParams[1].value, ALPACA_CLIENT_VERSION);
+	}
+	httpParams[2].key = malloc(strlen("enable") + 1);
+	if(httpParams[2].key){
+		memset(httpParams[2].key, 0, strlen("enable") + 1);
+		strcpy(httpParams[2].value, "enable");
+	}
+	if(*switchconfig.enable){
+		httpParams[2].value = malloc(strlen("true") + 1);
+		if(httpParams[2].value){
+			memset(httpParams[2].value, 0, strlen("true") + 1);
+			strcpy(httpParams[2].value, "true");
+		}
+	}
+	else{
+		httpParams[2].value = malloc(strlen("false") + 1);
+		if(httpParams[2].value){
+			memset(httpParams[2].value, 0, strlen("false") + 1);
+			strcpy(httpParams[2].value, "false");
+		}
+	}
+	httpParams[3].key = malloc(strlen(TOKEN_KEY) + 1);
+	if(httpParams[3].key){
+		memset(httpParams[3].key, 0, strlen(TOKEN_KEY) + 1);
+		strcpy(httpParams[3].key, TOKEN_KEY);
+	}
+	char* urlbuf = malloc(strlen(commonconfig.serverHeartbeatUrl) + strlen(local_ip) + 2);
+	if(urlbuf){
+		strcpy(urlbuf, commonconfig.serverHeartbeatUrl);
+		strcat(urlbuf, "|");
+		strcat(urlbuf, local_ip);
+	}
+	httpParams[3].value = getmd5(urlbuf);
+	strcat(httpParams[3].value, "\0");
+
+	if(PairUrlEncode(httpParams, out) == -1){
+		free(reqUrl);
+		free(out);
+		return;
+	}
+	//strcpy(out, "hupeng+++++++++++++++++++++++++");
+	strcpy(reqUrl, commonconfig.serverRoot);
+	strcat(reqUrl, commonconfig.serverBlockEventUrl);
+	curl = curl_easy_init();
+	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
+	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
+	curl_easy_perform(curl);
+	curl_easy_cleanup(curl);
+	free(reqUrl);
+	free(out);
 }
 
 void* pushRequestThread(){
@@ -199,6 +288,21 @@ void startPushRequestThread(){
 }
 
 
+void* heartbeatThread(){
+	while(1) {
+		if(*switchconfig.clientHeartbeatEnable){
+			sendFirewallHeartbeatRequest();
+		}	
+		sleep(*(commonconfig.clientHeartbeatInterval));
+	}
+}
+
+void startHeartbeatThread(){
+	pthread_t tid;
+	pthread_create(&tid, NULL, heartbeatThread, NULL);
+}
+
+
 
 
 
@@ -214,6 +318,7 @@ void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	initConfigWatch(aclc, r);
 	initBlockRequestQueue();
 	startPushRequestThread();
+	startHeartbeatThread();
 }
 
 char* getLocalIP(){
@@ -296,6 +401,13 @@ void setDefault(){
 	if(switchconfig.blockByVid){
 		*switchconfig.blockByVid = 0;
 	}
+	switchconfig.clientHeartbeatEnable = malloc(sizeof(int));
+	if(switchconfig.clientHeartbeatEnable){
+		*switchconfig.clientHeartbeatEnable = 0;
+	}
+	if(switchconfig.blockByVidOnly){
+		*switchconfig.blockByVidOnly = 0;
+	}
 	responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 	if(responsemessageconfig.denyMessage){
 		strcpy(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
@@ -331,6 +443,9 @@ void setDefault(){
 	commonconfig.serverBlockEventUrl = malloc(sizeof(DEFAULT_SERVER_URL_BLOCK_EVENT));
 	if(commonconfig.serverBlockEventUrl){
 		strcpy(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+	}
+	if(commonconfig.serverHeartbeatUrl){
+		strcpy(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
 	}
 }
 
@@ -698,6 +813,9 @@ int parsebuf(char *buf, char *key){
 	else if(strcmp(key, "alpaca.filter.mount") == 0){
 		return setIntP(buf, &switchconfig.mount);
 	}
+	else if(strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
+		return setIntP(buf, &switchconfig.clientHeartbeatEnable);
+	}
 	else if(strcmp(key, "alpaca.filter.blockByVid") == 0){
 		return setIntP(buf, &switchconfig.blockByVid);
 	}
@@ -751,6 +869,18 @@ int parsebuf(char *buf, char *key){
 	}
 	else if(strcmp(key, "alpaca.url.serverBlockEventNotifyUrl") == 0){
 		return setCharP(buf, &commonconfig.serverBlockEventUrl);
+	}
+	else if(strcmp(key, "alpaca.url.serverHeartbeatUrl") == 0){
+		return setCharP(buf, &commonconfig.serverHeartbeatUrl);
+	}
+	else if(strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
+		return setIntP(buf, &switchconfig.blockByVidOnly);
+	}
+	else if(strcmp(key, "alpaca.policy.denyVisterIDRate") == 0){
+		return setPairListP(buf, &policyconfig.denyVistorIDRate);
+	}
+	else if(strcmp(key, "alpaca.policy.denyVisterID") == 0){
+		return setListP(buf, &policyconfig.denyVistorID);
 	}
 	else{
 		return -1;
@@ -940,24 +1070,14 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 				}
 				memset(httpParams[7].key, 0, strlen("logTime") + 1);
 				strcpy(httpParams[7].key, "logTime");
-				/*time_t t;
-				struct tm *local;
-				time(&t);
-				local = localtime(&t);
-				int date[6];
-				date[0] = local->tm_year + 1900;
-				date[1] = local->tm_mon + 1;
-				date[2] = local->tm_mday;
-				date[3] = local->tm_hour;
-				date[4] = local->tm_min;
-				date[5] = local->tm_sec;*///TODO
 				httpParams[7].value = malloc(strlen("yyyy-MM-dd HH:mm:ss") + 1);
 				if(!httpParams[7].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
 				memset(httpParams[7].value, 0, strlen("yyyy-MM-dd HH:mm:ss") + 1);
-				strcpy(httpParams[7].value, "2013-01-10 21:05:55");
+				char* logTime = getNowLogTime();
+				strcpy(httpParams[7].value, logTime);
 				pthread_mutex_lock(&blockqueuelock);
 				blockQueueOffer(httpParams);
 				pthread_mutex_unlock(&blockqueuelock);
@@ -970,6 +1090,51 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 	else{
 		return CONTEXTSTATUSNEEDNOTRESPONSE;
 	}
+}
+
+void changeIntToChar(char** buf, int num, int bit){
+	while(num > 0){
+		sprintf(*buf, "%d", num / bit);
+		(*buf)++;
+		num = num % bit;
+		bit = bit / 10;
+	}
+}
+char* getNowLogTime(){
+	char* result = malloc(strlen("yyyy-MM-dd HH:mm:ss") + 1);
+	if(result == NULL){
+		return NULL;
+	}
+	memset(result, 0, strlen("yyyy-MM-dd HH:mm:ss") + 1);
+	time_t t;
+	struct tm *local;
+	time(&t);
+	local = localtime(&t);
+	int date[6];
+	date[0] = local->tm_year + 1900;
+	date[1] = local->tm_mon + 1;
+	date[2] = local->tm_mday;
+	date[3] = local->tm_hour;
+	date[4] = local->tm_min;
+	date[5] = local->tm_sec;
+	char* buf = result;
+	changeIntToChar(&buf, date[0], 1000);
+	sprintf(buf, "%s", "-");
+	buf++;
+	changeIntToChar(&buf, date[1], 10);
+	sprintf(buf, "%s", "-");
+	buf++;
+	changeIntToChar(&buf, date[2], 10);
+	sprintf(buf, "%s", " ");
+	buf++;
+	changeIntToChar(&buf, date[3], 10);
+	sprintf(buf, "%s", ":");
+	buf++;
+	changeIntToChar(&buf, date[4], 10);
+	sprintf(buf, "%s", ":");
+	buf++;
+	changeIntToChar(&buf, date[5], 10);
+	return result;
 }
 
 void procrequest(ngx_http_request_t *r, Context *context){
@@ -1006,6 +1171,24 @@ int isFirewallRequest(ngx_http_request_t *r){
 	}
 	return 0;	
 }
+
+int getCookie(u_char* in, ngx_http_request_t *r){
+	in = (u_char*)strstr((char*)r->header_start, "_hc.v");
+	if(in == NULL){
+		return 0;
+	}
+	in = in + strlen("_hc.v");
+	if(strncmp((char*)in, "=", 1) == 0 || strncmp((char*)in, "\"", 1) == 0 || strncmp((char*)in, " ", 1) == 0){
+		in++;
+	}
+	u_char* end = (u_char*)strstr((char*)in, "\"");
+	if(end == NULL){
+		in = NULL;
+		return 0;
+	}
+	return ((int)end - (int)in - 1);
+}
+
 Context* getRequestContext(ngx_http_request_t *r){
 	Context* result = malloc(sizeof(Context));
 	if(result == NULL){
@@ -1022,7 +1205,7 @@ Context* getRequestContext(ngx_http_request_t *r){
 	//TODO
 	result->rawUrl = url;
 	result->rawUrl_len = url_len;
-	result->visitId = r->header_start;
+	result->visitId_len = getCookie(result->visitId, r);
 	//TODO
 	return result;
 }
@@ -1040,6 +1223,9 @@ void handleBlockRequestIfNeeded(Context *context){
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddress)){
 			context->status = DENY_IP;
+		}
+		else if(context->visitId == NULL || contains((char*)context->visitId, policyconfig.denyVistorID, context->visitId_len)){
+			context->status = DENY_VID;
 		}
 		else{
 			if(context->visitId == NULL){
@@ -1071,8 +1257,11 @@ void handleBlockRequestIfNeeded(Context *context){
 						int i;
 						for(i = 0; i < policyconfig.denyIPVidRate->len; i++){
 							if(strncmp(policyconfig.denyIPVidRate->list[i]->key->key, (char*)context->clientIP, strlen(policyconfig.denyIPVidRate->list[i]->key->key)) == 0 && strncmp(policyconfig.denyIPVidRate->list[i]->key->value, (char*)context->rawUrl, strlen(policyconfig.denyIPVidRate->list[i]->key->value)) == 0){
-								context->status = DENY_IPVIDRATE;
-								return;
+
+								if(compareDate(policyconfig.denyIPVidRate->list[i]->value) == 1){
+									context->status = DENY_IPVIDRATE;
+									return;
+								}
 							}
 						}	
 					}
@@ -1082,8 +1271,25 @@ void handleBlockRequestIfNeeded(Context *context){
 						int i;
 						for(i = 0; i < policyconfig.denyIPAddressRate->len; i++){
 							if(strncmp(policyconfig.denyIPAddressRate->list[i]->key, (char*)context->clientIP, strlen(policyconfig.denyIPAddressRate->list[i]->key))){
-								context->status = DENY_IPRATE;
-								return;
+
+								if(compareDate(policyconfig.denyIPAddressRate->list[i]->value) == 1){
+									context->status = DENY_IPRATE;
+									return;
+								}
+							}	
+						}
+					}
+				}
+				if(*switchconfig.blockByVidOnly == 1){
+					if(policyconfig.denyVistorIDRate != NULL){
+						int i;
+						for(i = 0; i < policyconfig.denyVistorIDRate->len; i++){
+							if(strncmp(policyconfig.denyVistorIDRate->list[i]->key, (char*)context->visitId, strlen(policyconfig.denyVistorIDRate->list[i]->key))){
+
+								if(compareDate(policyconfig.denyVistorIDRate->list[i]->value) == 1){
+									context->status = DENY_VIDRATE;
+									return;
+								}
 							}	
 						}
 					}

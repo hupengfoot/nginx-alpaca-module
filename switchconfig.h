@@ -4,7 +4,9 @@ typedef struct SwitchConfig{
 	  int *enable;
 	  int *pushBlockEvent;
 	  int *mount;
+	  int *clientHeartbeatEnable;
 	  int *blockByVid;
+	  int *blockByVidOnly;
 }SwitchConfig;
 
 SwitchConfig switchconfig;

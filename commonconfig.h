@@ -5,6 +5,7 @@ typedef struct CommonConfig{
 	char* clientValidateCodeUrl;
 	char* serverRoot;
 	char* serverBlockEventUrl;
+	char* serverHeartbeatUrl;
 	int* clientHeartbeatInterval;
 }CommonConfig;
 

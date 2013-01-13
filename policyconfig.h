@@ -35,10 +35,12 @@ typedef struct {
 	List* denyUserAgentPrefix;
 	List* denyIPAddress;
 	List* denyIPAddressPrefix;
+	List* denyVistorID;
 	PairList* denyIPAddressRate;
 	ListList* denyUserAgentContainAnd;
 	TripleList* denyIPVidRate;
 	PairList* denyIPVidRateStr;
+	PairList* denyVistorIDRate;
 	PairList* denyNOVisitorIDURL;
 }PolicyConfig;
 

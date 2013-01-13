@@ -12,6 +12,8 @@ typedef struct{
 } ngx_alpaca_client_loc_conf_t;
 
 enum status {
+	DENY_VID = 407,
+	DENY_VIDRATE = 408,
 	DENY_HTTPMETHOD = 406,
        	DENY_USERAGENT = 401,
        	DENY_IP = 403,
