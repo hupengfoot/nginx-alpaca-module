@@ -400,6 +400,7 @@ void setDefault(){
 	if(switchconfig.clientHeartbeatEnable){
 		*switchconfig.clientHeartbeatEnable = 0;
 	}
+	switchconfig.blockByVidOnly = malloc(sizeof(int));
 	if(switchconfig.blockByVidOnly){
 		*switchconfig.blockByVidOnly = 0;
 	}
@@ -439,6 +440,7 @@ void setDefault(){
 	if(commonconfig.serverBlockEventUrl){
 		strcpy(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
 	}
+	commonconfig.serverHeartbeatUrl = malloc(sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
 	if(commonconfig.serverHeartbeatUrl){
 		strcpy(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
 	}
