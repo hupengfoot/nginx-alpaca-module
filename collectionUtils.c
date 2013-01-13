@@ -19,8 +19,10 @@ int ignoreCaseContains(char* target, List* collection, int len){
 	if(collection != NULL && target != NULL){
 		int i;
 		for(i = 0; i < collection->len; i++){
-			if(strncasecmp(target, collection->list[i]+1, len) == 0){
-				return 1;
+			if(len == (int)(strlen(collection->list[i]) - 1)){
+				if(strncasecmp(target, collection->list[i]+1, len) == 0){
+					return 1;
+				}
 			}
 		}
 	}
@@ -31,8 +33,10 @@ int contains(char* target, List* collection, int len){
 	if(collection != NULL && target != NULL){
 		int i;
 		for(i = 0; i < collection->len; i++){
-			if(strncmp(target, collection->list[i]+1, len) == 0){
-				return 1;
+			if(len == (int)(strlen(collection->list[i] + 1) - 1)){
+				if(strncmp(target, collection->list[i]+1, len) == 0){
+					return 1;
+				}
 			}
 		}
 	}

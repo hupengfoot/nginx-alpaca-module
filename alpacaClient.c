@@ -302,11 +302,6 @@ void startHeartbeatThread(){
 	pthread_create(&tid, NULL, heartbeatThread, NULL);
 }
 
-
-
-
-
-
 void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	if(!local_ip){
 		local_ip = getLocalIP();
