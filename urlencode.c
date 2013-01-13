@@ -11,6 +11,9 @@ char *url_encode(char const *s, int len, int *new_length)
 	from = (unsigned char *)s;
 	end = (unsigned char *)s + len;
 	start = to = (unsigned char *) safe_emalloc(3, len, 1);
+	if(!start || !to){
+		return NULL;
+	}
 
 	while (from < end) {
 		c = *from++;

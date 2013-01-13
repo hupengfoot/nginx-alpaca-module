@@ -94,7 +94,7 @@ void initBlockRequestQueue(){
 	pthread_mutex_init(&blockqueuelock, NULL);
 }
 
-void PairUrlEncode(Pair* httpParams, char* out){
+int PairUrlEncode(Pair* httpParams, char* out){
  	int len = PUSH_BLOCK_ARGS_NUM;
 	int isFirst = 1;
 	int p = 0;
@@ -110,14 +110,21 @@ void PairUrlEncode(Pair* httpParams, char* out){
 			p++;
 		}
 		buf = url_encode(httpParams[i].key, strlen(httpParams[i].key), &new_length);
+		if(!buf){
+			return -1;
+		}
 		strcat(out, buf);
+		p++;
 		p = p + new_length;
-		free(buf);
+		strcat(out,"=");
 		buf = url_encode(httpParams[i].value, strlen(httpParams[i].value), &new_length);	
+		if(!buf){
+			return -1;
+		}
 		strcat(out,buf);
 		p = p + new_length;
-		free(buf);
 	}	
+	return 1;
 }
 
 void sendFirewallHttpRequest(){
@@ -127,16 +134,16 @@ void sendFirewallHttpRequest(){
 		return;
 	}
 	char *out = malloc(DEFAULT_BLOCK_MAX_LENTH);
-	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
 	if(!out){
 		return;
 	}
+	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
 	Pair* httpParams = blockQueuePoll();
 	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);
-	memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 	if(httpParams[8].key){
 		strcpy(httpParams[8].key, TOKEN_KEY);
 	}
+	memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);
 	if(urlbuf){
 		strcpy(urlbuf, commonconfig.serverBlockEventUrl);
@@ -146,7 +153,12 @@ void sendFirewallHttpRequest(){
 	httpParams[8].value = getmd5(urlbuf);
 	strcat(httpParams[8].value, "\0");
 	pthread_mutex_unlock(&blockqueuelock);
-	PairUrlEncode(httpParams, out);
+	
+	if(PairUrlEncode(httpParams, out) == -1){
+		free(reqUrl);
+		free(out);
+		return;
+	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
 	strcpy(reqUrl, commonconfig.serverRoot);
 	strcat(reqUrl, commonconfig.serverBlockEventUrl);
@@ -796,133 +808,137 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 			if(*switchconfig.pushBlockEvent == 1){
 				int paramnum = PUSH_BLOCK_ARGS_NUM;
 				Pair* httpParams = malloc(sizeof(Pair)*paramnum);
-				memset(httpParams, 0, sizeof(Pair)*paramnum);
 				if(!httpParams){
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams, 0, sizeof(Pair)*paramnum);
 				httpParams[0].key = malloc(strlen("blockUrl") + 1);
-				memset(httpParams[0].key, 0, strlen("blockUrl") + 1);
 				if(!httpParams[0].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[0].key, 0, strlen("blockUrl") + 1);
 				strcpy(httpParams[0].key, "blockUrl");
 				httpParams[0].value = malloc(context->rawUrl_len + 1);
-				memset(httpParams[0].value, 0, context->rawUrl_len + 1);
 				if(!httpParams[0].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[0].value, 0, context->rawUrl_len + 1);
 				strncpy(httpParams[0].value, (char*)context->rawUrl, context->rawUrl_len);
 				httpParams[1].key = malloc(strlen("status") + 1);
-				memset(httpParams[1].key, 0, strlen("status") + 1);
 				if(!httpParams[1].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[1].key, 0, strlen("status") + 1);
 				strcpy(httpParams[1].key, "status");
 				char* httpstatus = getHttpStatus(context->status);
 				httpParams[1].value = malloc(strlen(httpstatus) + 1);
-				memset(httpParams[1].value, 0, strlen(httpstatus) + 1);
 				if(!httpParams[1].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[1].value, 0, strlen(httpstatus) + 1);
 				strcpy(httpParams[1].value, httpstatus);
 				httpParams[2].key = malloc(strlen("blockIp") + 1);
-				memset(httpParams[2].key, 0, strlen("blockIp") + 1);
 				if(!httpParams[2].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[2].key, 0, strlen("blockIp") + 1);
 				strcpy(httpParams[2].key, "blockIp");
 				if(!context->clientIP){
 					httpParams[2].value = malloc(strlen("empty ip") + 1);
-					memset(httpParams[2].value, 0,strlen("empty ip") + 1); 
 					if(!httpParams[2].value){
 						freePairP(httpParams, paramnum);
 						return CONTEXTSTATUSNEEDRESPONSE;
 					}
+					memset(httpParams[2].value, 0,strlen("empty ip") + 1); 
 					strcpy(httpParams[2].value, "empty ip");
 				}
 				else{
 					httpParams[2].value = malloc(context->clientIP_len + 1);
+					if(!httpParams[2].value){
+						freePairP(httpParams, paramnum);
+						return CONTEXTSTATUSNEEDRESPONSE;
+					}
 					memset(httpParams[2].value, 0, context->clientIP_len + 1); 
 					strncpy(httpParams[2].value, (char*)context->clientIP, context->clientIP_len);
 				}
 				httpParams[3].key = malloc(strlen("userAgent") + 1);
-				memset(httpParams[3].key, 0, strlen("userAgent") + 1);
 				if(!httpParams[3].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[3].key, 0, strlen("userAgent") + 1);
 				strcpy(httpParams[3].key, "userAgent");
 				httpParams[3].value = malloc(context->userAgent_len + 1);
-				memset(httpParams[3].value, 0, context->userAgent_len + 1);
 				if(!httpParams[3].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[3].value, 0, context->userAgent_len + 1);
 				strncpy(httpParams[3].value, (char*)context->userAgent, context->userAgent_len);
 				httpParams[4].key = malloc(strlen("httpMethod"));
-				memset(httpParams[4].key, 0, strlen("httpMethod"));  
 				if(!httpParams[4].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[4].key, 0, strlen("httpMethod"));  
 				strcpy(httpParams[4].key, "httpMethod");
 				httpParams[4].value = malloc(context->httpMethod_len + 1);
-				memset(httpParams[4].value, 0, context->httpMethod_len + 1);
 				if(!httpParams[4].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[4].value, 0, context->httpMethod_len + 1);
 				strncpy(httpParams[4].value, (char*)context->httpMethod, context->httpMethod_len);
 				httpParams[5].key = malloc(strlen("clientIP") + 1);
-				memset(httpParams[5].key, 0, strlen("clientIP") + 1); 
 				if(!httpParams[5].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[5].key, 0, strlen("clientIP") + 1); 
 				strcpy(httpParams[5].key, "clientIP");
 				httpParams[5].value = malloc(strlen(local_ip) + 1);
-				memset(httpParams[5].value, 0, strlen(local_ip) + 1);
 				if(!httpParams[5].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[5].value, 0, strlen(local_ip) + 1);
 				strcpy(httpParams[5].value, local_ip);
 				httpParams[6].key = malloc(strlen("vid") + 1);
-				memset(httpParams[6].key, 0, strlen("vid") + 1);
 				if(!httpParams[6].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[6].key, 0, strlen("vid") + 1);
 				strcpy(httpParams[6].key, "vid");
 				if(!context->visitId){
 					httpParams[6].value = malloc(strlen("empty ip") + 1);
-					memset(httpParams[6].value, 0, strlen("empty ip") + 1);
 					if(!httpParams[6].value){
 						freePairP(httpParams, paramnum);
 						return CONTEXTSTATUSNEEDRESPONSE;
 					}
+					memset(httpParams[6].value, 0, strlen("empty ip") + 1);
 					strcpy(httpParams[6].value, "empty ip");
 				}
 				else{
 					httpParams[6].value = malloc(context->visitId_len + 1);
-					memset(httpParams[6].value, 0, context->visitId_len + 1);
 					if(!httpParams[6].value){
 						freePairP(httpParams, paramnum);
 						return CONTEXTSTATUSNEEDRESPONSE;
 					}
+					memset(httpParams[6].value, 0, context->visitId_len + 1);
 					strncpy(httpParams[6].value, (char*)context->visitId, context->visitId_len);
 				}
 				httpParams[7].key = malloc(strlen("logTime") + 1);
-				memset(httpParams[7].key, 0, strlen("logTime") + 1);
 				if(!httpParams[7].key){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[7].key, 0, strlen("logTime") + 1);
 				strcpy(httpParams[7].key, "logTime");
 				/*time_t t;
 				struct tm *local;
@@ -936,11 +952,11 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 				date[4] = local->tm_min;
 				date[5] = local->tm_sec;*///TODO
 				httpParams[7].value = malloc(strlen("yyyy-MM-dd HH:mm:ss") + 1);
-				memset(httpParams[7].value, 0, strlen("yyyy-MM-dd HH:mm:ss") + 1);
 				if(!httpParams[7].value){
 					freePairP(httpParams, paramnum);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				memset(httpParams[7].value, 0, strlen("yyyy-MM-dd HH:mm:ss") + 1);
 				strcpy(httpParams[7].value, "2013-01-10 21:05:55");
 				pthread_mutex_lock(&blockqueuelock);
 				blockQueueOffer(httpParams);
