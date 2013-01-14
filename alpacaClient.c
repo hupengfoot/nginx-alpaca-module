@@ -1164,21 +1164,22 @@ int isFirewallRequest(ngx_http_request_t *r){
 	return 0;	
 }
 
-int getCookie(u_char* in, ngx_http_request_t *r){
-	in = (u_char*)strstr((char*)r->header_start, "_hc.v");
-	if(in == NULL){
+int getCookie(u_char** in, ngx_http_request_t *r){
+	*in = (u_char*)strstr((char*)r->header_start, "_hc.v");
+	if(*in == NULL){
+		*in = NULL;
 		return 0;
 	}
-	in = in + strlen("_hc.v");
-	if(strncmp((char*)in, "=", 1) == 0 || strncmp((char*)in, "\"", 1) == 0 || strncmp((char*)in, " ", 1) == 0){
-		in++;
+	*in = *in + strlen("_hc.v");
+	if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0){
+		(*in)++;
 	}
-	u_char* end = (u_char*)strstr((char*)in, "\"");
+	u_char* end = (u_char*)strstr((char*)*in, "\"");
 	if(end == NULL){
-		in = NULL;
+		*in = NULL;
 		return 0;
 	}
-	return ((int)end - (int)in - 1);
+	return ((int)end - (int)(*in) - 1);
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
@@ -1197,7 +1198,7 @@ Context* getRequestContext(ngx_http_request_t *r){
 	//TODO
 	result->rawUrl = url;
 	result->rawUrl_len = url_len;
-	result->visitId_len = getCookie(result->visitId, r);
+	result->visitId_len = getCookie(&result->visitId, r);
 	//TODO
 	return result;
 }
