@@ -11,6 +11,10 @@ char* getmd5(const char* data){
 	char tmp[3]={'\0'};
 	char* buf;
 	buf = malloc(MD5_LEN*sizeof(char));
+	if(!buf){
+		return NULL;
+	}
+	memset(buf, 0, MD5_LEN*sizeof(char));
 	MD5((unsigned char*)data,strlen(data),md);
 	printf("%s\n",md);
 	for (i = 0; i < 16; i++){
