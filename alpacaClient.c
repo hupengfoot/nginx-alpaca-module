@@ -39,7 +39,7 @@
 #define DEFAULT_CLIENT_HEARTBEAT_INTERVAL 180
 #define DEFAULT_CLIENT_URL_STATUS "/dianping.firewall.client.status"
 #define DEFAULT_CLIENT_URL_VALIDATECODE "/deny.code"
-#define ALPACA_CLIENT_VERSION "0.29"
+#define ALPACA_CLIENT_VERSION "0.35"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
 
 
@@ -98,8 +98,7 @@ void initBlockRequestQueue(){
 	pthread_mutex_init(&blockqueuelock, NULL);
 }
 
-int PairUrlEncode(Pair* httpParams, char* out){
-	int len = PUSH_BLOCK_ARGS_NUM;
+int PairUrlEncode(Pair* httpParams, char* out, int len){
 	int isFirst = 1;
 	int p = 0;
 	int new_length = 0;
@@ -160,7 +159,7 @@ void sendFirewallHttpRequest(){
 	}
 	pthread_mutex_unlock(&blockqueuelock);
 
-	if(PairUrlEncode(httpParams, out) == -1){
+	if(PairUrlEncode(httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
 		free(reqUrl);
 		free(out);
 		return;
@@ -192,7 +191,7 @@ void sendFirewallHeartbeatRequest(){
 		return;
 	}
 	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
-	int paramnum = 3;
+	int paramnum = 4;
 	Pair* httpParams = malloc(sizeof(Pair)*paramnum);
 	httpParams[0].key = malloc(strlen("clientIP") + 1);
 	if(httpParams[0].key){
@@ -217,7 +216,7 @@ void sendFirewallHeartbeatRequest(){
 	httpParams[2].key = malloc(strlen("enable") + 1);
 	if(httpParams[2].key){
 		memset(httpParams[2].key, 0, strlen("enable") + 1);
-		strcpy(httpParams[2].value, "enable");
+		strcpy(httpParams[2].key, "enable");
 	}
 	if(*switchconfig.enable){
 		httpParams[2].value = malloc(strlen("true") + 1);
@@ -247,14 +246,14 @@ void sendFirewallHeartbeatRequest(){
 	httpParams[3].value = getmd5(urlbuf);
 	strcat(httpParams[3].value, "\0");
 
-	if(PairUrlEncode(httpParams, out) == -1){
+	if(PairUrlEncode(httpParams, out, paramnum) == -1){
 		free(reqUrl);
 		free(out);
 		return;
 	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
 	strcpy(reqUrl, commonconfig.serverRoot);
-	strcat(reqUrl, commonconfig.serverBlockEventUrl);
+	strcat(reqUrl, commonconfig.serverHeartbeatUrl);
 	curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
 	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
@@ -1443,10 +1442,10 @@ cJSON* dumpStatus(){
 		item = cJSON_CreateBool(*switchconfig.enable);
 		cJSON_AddItemToObject(obj, zookeeper_key[0], item);
 	}
-	if(switchconfig.running != NULL){
+	/*if(switchconfig.running != NULL){
 		item = cJSON_CreateBool(*switchconfig.running);
 		cJSON_AddItemToObject(obj, "running", item);
-	}
+	}*/
 	if(switchconfig.pushBlockEvent != NULL){
 		item = cJSON_CreateBool(*switchconfig.pushBlockEvent);
 		cJSON_AddItemToObject(obj, zookeeper_key[2], item);
@@ -1457,27 +1456,23 @@ cJSON* dumpStatus(){
 	}
 	if(switchconfig.blockByVid != NULL){
 		item = cJSON_CreateBool(*switchconfig.blockByVid);
-		cJSON_AddItemToObject(obj, zookeeper_key[4], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[5], item);
 	}
 	if(policyconfig.acceptIPAddressPrefix != NULL){
 		item = formatCharPP(policyconfig.acceptIPAddressPrefix->list, policyconfig.acceptIPAddressPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[5], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[6], item);
 	}
 	if(policyconfig.acceptHttpMethod != NULL){
 		item = formatCharPP(policyconfig.acceptHttpMethod->list, policyconfig.acceptHttpMethod->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[6], item);
-	}
-	if(policyconfig.denyUserAgent != NULL){
-		item = formatCharPP(policyconfig.denyUserAgent->list, policyconfig.denyUserAgent->len);
 		cJSON_AddItemToObject(obj, zookeeper_key[7], item);
 	}
 	if(policyconfig.denyUserAgent != NULL){
 		item = formatCharPP(policyconfig.denyUserAgent->list, policyconfig.denyUserAgent->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[7], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[8], item);
 	}
 	if(policyconfig.denyUserAgentPrefix != NULL){
 		item = formatCharPP(policyconfig.denyUserAgentPrefix->list, policyconfig.denyUserAgentPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[8], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[9], item);
 	}
 	if(policyconfig.denyIPAddress != NULL){
 		item = formatCharPP(policyconfig.denyIPAddress->list, policyconfig.denyIPAddress->len);
@@ -1485,23 +1480,23 @@ cJSON* dumpStatus(){
 	}
 	if(policyconfig.denyIPAddressPrefix != NULL){
 		item = formatCharPP(policyconfig.denyIPAddressPrefix->list, policyconfig.denyIPAddressPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[9], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[10], item);
 	}
 	if(policyconfig.denyIPAddressRate != NULL){
 		item = formatPairPP(policyconfig.denyIPAddressRate->list, policyconfig.denyIPAddressRate->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[10], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[11], item);
 	}
 	if(policyconfig.denyUserAgentContainAnd != NULL){
 		item = formatListPP(policyconfig.denyUserAgentContainAnd->list, policyconfig.denyUserAgentContainAnd->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[11], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[12], item);
 	}
 	if(policyconfig.denyIPVidRateStr != NULL){
 		item = formatPairPP(policyconfig.denyIPVidRateStr->list, policyconfig.denyIPVidRateStr->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[12], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[13], item);
 	}
 	if(policyconfig.denyNOVisitorIDURL != NULL){
 		item = formatPairPP(policyconfig.denyNOVisitorIDURL->list, policyconfig.denyNOVisitorIDURL->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[13], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[14], item);
 	}
 	if(responsemessageconfig.denyMessage != NULL){
 		item = cJSON_CreateString(responsemessageconfig.denyMessage);
@@ -1509,7 +1504,7 @@ cJSON* dumpStatus(){
 	}
 	if(responsemessageconfig.denyRateMessage != NULL){
 		item = cJSON_CreateString(responsemessageconfig.denyRateMessage);
-		cJSON_AddItemToObject(obj, zookeeper_key[19], item);
+		cJSON_AddItemToObject(obj, zookeeper_key[20], item);
 	}
 	return obj;
 }
