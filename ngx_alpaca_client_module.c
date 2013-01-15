@@ -26,7 +26,7 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_loc_conf_t, enable),
 		NULL },
-	{ ngx_string("alpaca_zoo"),
+	{ ngx_string("alpaca_zk"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,

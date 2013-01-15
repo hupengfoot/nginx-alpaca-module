@@ -1,6 +1,6 @@
 #include <string.h>
 #include <malloc.h>
-char *url_encode(char const *s, int len, int *new_length)
+char *url_encode(char const *s, int len, int *new_length)//TODO,could use?
 {
 #define safe_emalloc(nmemb, size, offset)malloc((nmemb) * (size) + (offset))
 	static unsigned char hexchars[] = "0123456789ABCDEF";
