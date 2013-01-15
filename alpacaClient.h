@@ -1,6 +1,7 @@
 #include <zookeeper/zookeeper.h>
 #include <ngx_core.h>
 
+
 #define CONTEXTSTATUSNEEDNOTRESPONSE -1
 #define CONTEXTSTATUSNEEDRESPONSE 0
 
@@ -43,3 +44,7 @@ typedef struct{
 void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r);
 void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r);
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out);
+
+
+
+

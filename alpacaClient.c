@@ -78,8 +78,8 @@ void responseDenyMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **
 void responseDenyRateMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **out);
 cJSON* dumpStatus();
 cJSON* formatCharPP(char** key, int key_len);
-cJSON* formatPairPP(Pair** key, int key_len);
-cJSON* formatListPP(List** key, int key_len);
+cJSON* formatPairPP(Pair* key, int key_len);
+cJSON* formatListPP(List* key, int key_len);
 char* getResponseDenyMessage(Context *context);
 char* getResponseDenyRateMessage(Context *context);
 char* getNowLogTime();
@@ -612,7 +612,7 @@ PairList* getPairListPInstance(char* buf){
 			cJSON_Delete(json);
 			return NULL;
 		}
-		Pair** list = (Pair**)malloc(sizeof(Pair*)*itemsize);
+		Pair* list = (Pair*)malloc(sizeof(Pair)*itemsize);
 		if(!list){
 			cJSON_Delete(json);
 			free(result);
@@ -623,8 +623,8 @@ PairList* getPairListPInstance(char* buf){
 			if(!tmp_json){
 				continue;
 			}
-			list[i]->key = cJSON_Print_key(tmp_json);
-			list[i]->value = cJSON_Print(tmp_json);
+			list[i].key = cJSON_Print_key(tmp_json);
+			list[i].value = cJSON_Print(tmp_json);
 		}
 		result->list = list;
 		result->len = itemsize;
@@ -643,8 +643,8 @@ int setPairListP(char* buf, PairList** key){
 			*key = tmp;
 			int i;
 			for(i = 0; i < before->len; i++){
-				free(before->list[i]->key);
-				free(before->list[i]->value);
+				free(before->list[i].key);
+				free(before->list[i].value);
 			}
 			free(before->list);
 			free(before);
@@ -672,7 +672,7 @@ TripleList* getTripleListPInstance(char* buf){
 			cJSON_Delete(json);	
 			return NULL;
 		}
-		Triple** list = (Triple**)malloc(sizeof(Triple*)*itemsize);
+		Triple* list = (Triple*)malloc(sizeof(Triple)*itemsize);
 		if(list == NULL){
 			cJSON_Delete(json);	
 			return NULL;
@@ -682,16 +682,12 @@ TripleList* getTripleListPInstance(char* buf){
 			if(!tmp_json){
 				continue;
 			}
-			list[i]->key = (Pair*)malloc(sizeof(Pair));
-			if(!list[i]->key){
-				continue;
-			}
 			pair = cJSON_Print_key(tmp_json);
 			char* pch = strtok(pair, ",\"");
-			list[i]->key->key = pch;
+			list[i].key.key = pch;
 			pch = strtok(NULL, ",\"");
-			list[i]->key->value = pch;
-			list[i]->value = cJSON_Print(tmp_json);
+			list[i].key.value = pch;
+			list[i].value = cJSON_Print(tmp_json);
 		}
 		result->list = list;
 		result->len = itemsize;
@@ -711,11 +707,9 @@ int setTripleListP(char* buf, TripleList** key){
 			*key = tmp;
 			int i;
 			for(i = 0; i < before->len; i++){
-				free(before->list[i]->key->key);
-				free(before->list[i]->key->value);// may be don`t need
-				free(before->list[i]->key);
-				free(before->list[i]->value);
-				free(before->list[i]);
+				free(before->list[i].key.key);
+				free(before->list[i].key.value);// may be don`t need
+				free(before->list[i].value);
 			}
 			free(before->list);
 			free(before);
@@ -742,7 +736,7 @@ ListList* getListListPInstance(char *buf){
 			cJSON_Delete(json);	
 			return NULL;
 		}
-		List** list = (List**)malloc(sizeof(List*)*itemsize);
+		List* list = (List*)malloc(sizeof(List)*itemsize);
 		if(list == NULL){
 			cJSON_Delete(json);
 			free(result);	
@@ -754,16 +748,13 @@ ListList* getListListPInstance(char *buf){
 				continue;
 			}
 			int subitemsize = cJSON_GetArraySize(tmp_json);
-			list[i] = malloc(sizeof(char*)*subitemsize);
-			if(!list[i]){
-				continue;
-			}
 			int j;
+			list[i].list = malloc(sizeof(char*) * subitemsize);
 			for(j = 0; j < subitemsize; j++){
 				sub_tmp_json = cJSON_GetArrayItem(tmp_json,j);
-				list[i]->list[j] = cJSON_Print(sub_tmp_json);
+				list[i].list[j] = cJSON_Print(sub_tmp_json);
 			}
-			list[i]->len = subitemsize;
+			list[i].len = subitemsize;
 		}
 		result->list = list;
 		result->len = itemsize;
@@ -783,10 +774,10 @@ int setListListP(char* buf, ListList** key){
 			*key = tmp;
 			int i, j;
 			for(i = 0; i < before->len; i++){
-				for(j = 0; j < before->list[i]->len; j++){
-					free(before->list[i]->list[j]);
+				for(j = 0; j < before->list[i].len; j++){
+					free(before->list[i].list[j]);
 				}
-				free(before->list[i]);
+				free(before->list[i].list);
 			}
 			free(before->list);
 			free(before);
@@ -833,7 +824,7 @@ int parsebuf(char *buf, char *key){
 		return setListP(buf, &policyconfig.denyIPAddressPrefix);
 	}
 	else if(strcmp(key, "alpaca.policy.denyIPAddressRate") == 0){
-		return setPairListP(buf, &policyconfig.denyIPAddressRate);
+		return setPairListP(buf, &(policyconfig.denyIPAddressRate));
 	}
 	else if(strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
 		return setListListP(buf, &policyconfig.denyUserAgentContainAnd);
@@ -1216,7 +1207,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddress)){
 			context->status = DENY_IP;
 		}
-		else if(context->visitId == NULL || contains((char*)context->visitId, policyconfig.denyVistorID, context->visitId_len)){
+		else if(context->visitId != NULL && contains((char*)context->visitId, policyconfig.denyVistorID, context->visitId_len)){
 			context->status = DENY_VID;
 		}
 		else{
@@ -1225,17 +1216,17 @@ void handleBlockRequestIfNeeded(Context *context){
 					int i;
 					int rawUrl_len = strlen((char*)context->rawUrl);
 					for(i = 0; i < policyconfig.denyNOVisitorIDURL->len; i++){
-						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i]->key, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i]->value,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i]->value, strlen((char*)context->httpMethod)) == 0)){
+						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i].key, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i].value,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i].value, strlen((char*)context->httpMethod)) == 0)){
 							context->status = DENY_NOVID;
 							return;
 						}
 					}
 				}	
-				if(policyconfig.denyIPAddressRate == NULL){
+				if(policyconfig.denyIPAddressRate != NULL){
 					int i;
 					for(i = 0; i < policyconfig.denyIPAddressRate->len; i++){
-						if(strncmp(policyconfig.denyIPAddressRate->list[i]->key, (char*)context->clientIP, strlen((char*)context->clientIP)) == 0){
-							if(compareDate(policyconfig.denyIPAddressRate->list[i]->value) == 1){
+						if(strncmp(policyconfig.denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, strlen((char*)context->clientIP)) == 0){
+							if(compareDate(policyconfig.denyIPAddressRate->list[i].value) == 1){
 								context->status = DENY_IPRATE;
 								return;
 							}
@@ -1248,9 +1239,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig.denyIPVidRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyIPVidRate->len; i++){
-							if(strncmp(policyconfig.denyIPVidRate->list[i]->key->key, (char*)context->clientIP, strlen(policyconfig.denyIPVidRate->list[i]->key->key)) == 0 && strncmp(policyconfig.denyIPVidRate->list[i]->key->value, (char*)context->rawUrl, strlen(policyconfig.denyIPVidRate->list[i]->key->value)) == 0){
+							if(strncmp(policyconfig.denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig.denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig.denyIPVidRate->list[i].key.value, (char*)context->rawUrl, strlen(policyconfig.denyIPVidRate->list[i].key.value)) == 0){
 
-								if(compareDate(policyconfig.denyIPVidRate->list[i]->value) == 1){
+								if(compareDate(policyconfig.denyIPVidRate->list[i].value) == 1){
 									context->status = DENY_IPVIDRATE;
 									return;
 								}
@@ -1262,9 +1253,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig.denyIPAddressRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyIPAddressRate->len; i++){
-							if(strncmp(policyconfig.denyIPAddressRate->list[i]->key, (char*)context->clientIP, strlen(policyconfig.denyIPAddressRate->list[i]->key))){
+							if(strncmp(policyconfig.denyIPAddressRate->list[i].key, (char*)context->clientIP, strlen(policyconfig.denyIPAddressRate->list[i].key))){
 
-								if(compareDate(policyconfig.denyIPAddressRate->list[i]->value) == 1){
+								if(compareDate(policyconfig.denyIPAddressRate->list[i].value) == 1){
 									context->status = DENY_IPRATE;
 									return;
 								}
@@ -1276,9 +1267,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig.denyVistorIDRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyVistorIDRate->len; i++){
-							if(strncmp(policyconfig.denyVistorIDRate->list[i]->key, (char*)context->visitId, strlen(policyconfig.denyVistorIDRate->list[i]->key))){
+							if(strncmp(policyconfig.denyVistorIDRate->list[i].key, (char*)context->visitId, strlen(policyconfig.denyVistorIDRate->list[i].key))){
 
-								if(compareDate(policyconfig.denyVistorIDRate->list[i]->value) == 1){
+								if(compareDate(policyconfig.denyVistorIDRate->list[i].value) == 1){
 									context->status = DENY_VIDRATE;
 									return;
 								}
@@ -1521,28 +1512,28 @@ cJSON* formatCharPP(char** key, int key_len){
 	return obj;
 }
 
-cJSON* formatPairPP(Pair** key, int key_len){
+cJSON* formatPairPP(Pair* key, int key_len){
 	int i;
 	cJSON *obj;
 	obj = cJSON_CreateObject();
 	cJSON *item;
 	for(i = 0; i< key_len; i++){
-		item = cJSON_CreateString(key[i]->value);
-		cJSON_AddItemToObject(obj, key[i]->key, item);
+		item = cJSON_CreateString(key[i].value);
+		cJSON_AddItemToObject(obj, key[i].key, item);
 	}
 	return obj;
 }
 
-cJSON* formatListPP(List** key, int key_len){
+cJSON* formatListPP(List* key, int key_len){
 	int i, j;
 	cJSON *obj;
 	obj = cJSON_CreateArray();
 	cJSON *item;
 	cJSON *list;
 	for(i = 0; i < key_len; i++){
-		for(j = 0; j < key[i]->len; j++){
+		for(j = 0; j < key[i].len; j++){
 			list = cJSON_CreateArray();
-			item = cJSON_CreateString(key[i]->list[j]);
+			item = cJSON_CreateString(key[i].list[j]);
 			cJSON_AddItemToArray(list, item);
 		}
 		cJSON_AddItemToArray(obj,list);

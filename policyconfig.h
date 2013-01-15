@@ -4,7 +4,7 @@ typedef struct {
 }Pair;
 
 typedef struct{
-	Pair** list;
+	Pair* list;
 	int len;
 }PairList;
 
@@ -14,17 +14,17 @@ typedef struct {
 }List;
 
 typedef struct {
-	Pair* key;
+	Pair key;
 	char* value;
 }Triple;
 
 typedef struct{
-	Triple** list;
+	Triple* list;
 	int len;
 }TripleList;
 
 typedef struct{
-	List** list;
+	List* list;
 	int len;
 }ListList;
 
@@ -36,12 +36,13 @@ typedef struct {
 	List* denyIPAddress;
 	List* denyIPAddressPrefix;
 	List* denyVistorID;
-	PairList* denyIPAddressRate;
 	ListList* denyUserAgentContainAnd;
 	TripleList* denyIPVidRate;
 	PairList* denyIPVidRateStr;
 	PairList* denyVistorIDRate;
 	PairList* denyNOVisitorIDURL;
+	PairList* denyIPAddressRate;
 }PolicyConfig;
+
 
 PolicyConfig policyconfig;
