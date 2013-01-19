@@ -361,7 +361,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 		char *keyname = malloc(sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1);
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);
-		printf("keyname = %s\nbuffer = %s\n", keyname, buffer);
+		free(keyname);
 		if(rc != 0){
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 			  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
@@ -376,7 +376,6 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 				//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 			}
 		}
-		free(keyname);
 	}
 	free(buffer);
 	aclc->zh = zh;
@@ -881,7 +880,6 @@ int parsebuf(char *buf, char *key){//TODO, change to for
 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {
-	printf("Watch some change!!!!!!!\n");
 	struct Stat stat;
 	int rc;
 	int i;
