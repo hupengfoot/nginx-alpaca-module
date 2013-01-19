@@ -142,12 +142,12 @@ void sendFirewallHttpRequest(){
 	}
 	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
 	Pair* httpParams = blockQueuePoll();
-	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);
+	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);//TODO
 	if(httpParams[8].key){
 		memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 		strcpy(httpParams[8].key, TOKEN_KEY);
 	}
-	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);
+	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);//TODO
 	if(urlbuf){
 		strcpy(urlbuf, commonconfig.serverBlockEventUrl);
 		strcat(urlbuf, "|");
@@ -167,7 +167,7 @@ void sendFirewallHttpRequest(){
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
 	strcpy(reqUrl, commonconfig.serverRoot);
 	strcat(reqUrl, commonconfig.serverBlockEventUrl);
-	curl = curl_easy_init();
+	curl = curl_easy_init();//TODO timeout
 	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
 	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
@@ -272,7 +272,7 @@ void* pushRequestThread(){
 		if(isBlockQueueEmpty() == 0){
 			needSleep = 0;
 			sendFirewallHttpRequest();
-			usleep(5);
+			usleep(5);//TODO
 		}
 		else{
 			pthread_mutex_unlock(&blockqueuelock);
@@ -305,7 +305,7 @@ void startHeartbeatThread(){
 
 void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	if(!local_ip){
-		local_ip = getLocalIP();
+		local_ip = getLocalIP();//TODO
 	}
 	else{
 		free(local_ip);
@@ -313,7 +313,7 @@ void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	}
 	initConfigWatch(aclc, r);
 	initBlockRequestQueue();
-	startPushRequestThread();
+	startPushRequestThread();//TODO ensure start thread only once
 	startHeartbeatThread();
 }
 
@@ -342,6 +342,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 		  "zookeeper init fail! the address is \"%V\" ",
 		  aclc->zookeeper_addr);*/
+		  
 		return;
 	}
 	//struct Stat stat;
@@ -349,7 +350,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
 	setDefault();
-	char *buffer = malloc(ZOOKEEPERBUFSIZE);//if malloc fail return what?
+	char *buffer = malloc(ZOOKEEPERBUFSIZE);//if malloc fail return what?  //TODO ,don`t use malloc
 	if(!buffer){
 		zookeeper_close(zh);
 		return;
@@ -367,7 +368,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 			  aclc->zookeeper_addr);//may be should use ngx_str_t
 			//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 		}else{
-			rc = parsebuf(buffer, zookeeper_key[i]);
+			rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
 			if(rc != 0){
 				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 				  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
@@ -382,7 +383,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 }
 
 void setDefault(){
-	switchconfig.enable = malloc(sizeof(int));
+	switchconfig.enable = malloc(sizeof(int));  //TODO int* to int
 	if(switchconfig.enable){
 		*switchconfig.enable = 0;
 	}
@@ -791,7 +792,7 @@ int setListListP(char* buf, ListList** key){
 	return 0;
 }
 
-int parsebuf(char *buf, char *key){
+int parsebuf(char *buf, char *key){//TODO, change to for
 	if(strcmp(key, "alpaca.filter.enable") == 0){
 		return setIntP(buf, &switchconfig.enable);
 	}
@@ -894,8 +895,7 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 		if(strcmp(path,keyname) == 0){
 			rc = zoo_get(zh, keyname, 1, buffer, &buflen, &stat);
 			if(rc == 0){
-				printf("path = %s\n buffer = %s\n",path, buffer);
-				rc = parsebuf(buffer, zookeeper_key[i]);
+				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, buflen
 				if(rc){
 					/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 						"get key \"%V\" from zookeeper but parse fail! ",
@@ -1158,7 +1158,7 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getCookie(u_char** in, ngx_http_request_t *r){
-	*in = (u_char*)strstr((char*)r->header_start, "_hc.v");
+	*in = (u_char*)strstr((char*)r->header_start, "_hc.v");// _hc.v need config
 	if(*in == NULL){
 		*in = NULL;
 		return 0;
