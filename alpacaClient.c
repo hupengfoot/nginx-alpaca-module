@@ -23,8 +23,8 @@
 #include "blockrequestqueue.h"
 #include "md5.h"
 
-#define ZOOKEEPERBUFSIZE 1024
-#define ZOOKEEPERROUTE "/"
+#define ZOOKEEPERBUFSIZE 20480
+#define ZOOKEEPERROUTE "/DP/CONFIG/"
 #define DENYMESSAGEMAXLENTH 4096
 #define DEFAULT_BLOCK_MAX_LENTH 4096
 #define DEFAULT_HEARTBEAT_MAX_LENTH 8192
@@ -46,7 +46,7 @@
 pthread_mutex_t blockqueuelock;
 static zhandle_t *zh;
 static char* local_ip;
-static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterIDRate","alpaca.policy.denyVisterID"}; 
+static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
@@ -1170,7 +1170,7 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 		*in = NULL;
 		return 0;
 	}
-	return ((int)end - (int)(*in) - 1);
+	return (end - (*in) - 1);
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
@@ -1530,7 +1530,7 @@ cJSON* formatListPP(List* key, int key_len){
 	cJSON *obj;
 	obj = cJSON_CreateArray();
 	cJSON *item;
-	cJSON *list;
+	cJSON *list = NULL;
 	for(i = 0; i < key_len; i++){
 		for(j = 0; j < key[i].len; j++){
 			list = cJSON_CreateArray();
