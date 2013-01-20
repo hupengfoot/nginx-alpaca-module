@@ -1182,8 +1182,8 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->userAgent_len = r->headers_in.user_agent->value.len;
 	result->httpMethod = r->method_name.data;
 	result->httpMethod_len = r->method_name.len;
-	result->clientIP = r->headers_in.host->value.data;
-	result->clientIP_len = r->headers_in.host->value.len;
+	result->clientIP = r->connection->addr_text.data;
+	result->clientIP_len = r->connection->addr_text.len;
 	u_char* url = r->unparsed_uri.data;
 	int url_len = r->unparsed_uri.len;
 	//TODO
