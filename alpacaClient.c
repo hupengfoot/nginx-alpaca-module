@@ -1571,7 +1571,7 @@ char* getResponseDenyMessage(Context *context){
 				}
 			}
 			else if(num == 2){
-				int len = strlen((char*)context->clientIP);
+				int len = context->clientIP_len;
 				int m = 0;
 				while(m < len){
 					result[k] = context->clientIP[m];
