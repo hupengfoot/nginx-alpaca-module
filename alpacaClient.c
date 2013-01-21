@@ -1217,7 +1217,7 @@ void handleBlockRequestIfNeeded(Context *context){
 					int i;
 					int rawUrl_len = strlen((char*)context->rawUrl);
 					for(i = 0; i < policyconfig.denyNOVisitorIDURL->len; i++){
-						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i].key, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i].value,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i].value, strlen((char*)context->httpMethod)) == 0)){
+						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i].key, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i].value,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i].value, context->httpMethod_len) == 0)){
 							context->status = DENY_NOVID;
 							return;
 						}
@@ -1226,7 +1226,7 @@ void handleBlockRequestIfNeeded(Context *context){
 				if(policyconfig.denyIPAddressRate != NULL){
 					int i;
 					for(i = 0; i < policyconfig.denyIPAddressRate->len; i++){
-						if(strncmp(policyconfig.denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, strlen((char*)context->clientIP)) == 0){
+						if(strncmp(policyconfig.denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, context->clientIP_len) == 0){
 							if(compareDate(policyconfig.denyIPAddressRate->list[i].value) == 1){
 								context->status = DENY_IPRATE;
 								return;
