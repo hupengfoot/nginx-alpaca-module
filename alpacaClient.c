@@ -46,7 +46,7 @@
 pthread_mutex_t blockqueuelock;
 static zhandle_t *zh;
 static char* local_ip;
-static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID"}; 
+static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
@@ -831,7 +831,7 @@ int parsebuf(char *buf, char *key){//TODO, change to for
 	else if(strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
 		return setListListP(buf, &policyconfig.denyUserAgentContainAnd);
 	}
-	else if(strcmp(key, "alpaca.policy.denyVisterIDRate") == 0){
+	else if(strcmp(key, "alpaca.policy.denyIPVidRate") == 0){
 		return setTripleListP(buf, &policyconfig.denyIPVidRate);
 	}
 	else if(strcmp(key, "alpaca.policy.denyNoVisitorIdURL") == 0){
@@ -867,11 +867,11 @@ int parsebuf(char *buf, char *key){//TODO, change to for
 	else if(strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
 		return setIntP(buf, &switchconfig.blockByVidOnly);
 	}
-	else if(strcmp(key, "alpaca.policy.denyVisterIDRate") == 0){
-		return setPairListP(buf, &policyconfig.denyVistorIDRate);
-	}
 	else if(strcmp(key, "alpaca.policy.denyVisterID") == 0){
 		return setListP(buf, &policyconfig.denyVistorID);
+	}
+	else if(strcmp(key, "alpaca.policy.denyVisterIDRate") == 0){
+		return setPairListP(buf, &policyconfig.denyVistorIDRate);
 	}
 	else{
 		return -1;
