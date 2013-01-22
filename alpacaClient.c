@@ -44,20 +44,23 @@
 
 
 pthread_mutex_t blockqueuelock;
+static int heartbeatthreadstart;
+static int pushblockthreadstart;
+static char* visitId;
 static zhandle_t *zh;
 static char* local_ip;
-static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyVisterIDRate", "alpaca.policy.denyNoVisitorIdURL", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
+static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyIPVidRate", "alpaca.policy.denyNoVisitorIdURL.new", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
-char* getLocalIP();
+void getLocalIP();
 void setDefault();
 char* getCharPInstance(char* buf);
 int setCharP(char* buf, char** key);
 int* getIntPInstanceDigit(char* buf);
 int setIntPDigit(char* buf, int** key);
-int* getIntPInstance(char* buf);
-int setIntP(char* buf, int** key);
+int getIntInstance(char* buf);
+int setInt(char* buf, int* key);
 List* getListPInstance(char* buf);
 int setListP(char* buf, List** key);
 PairList* getPairListPInstance(char* buf);
@@ -142,12 +145,12 @@ void sendFirewallHttpRequest(){
 	}
 	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
 	Pair* httpParams = blockQueuePoll();
-	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);//TODO
+	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);//TODO  free at poll
 	if(httpParams[8].key){
 		memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
 		strcpy(httpParams[8].key, TOKEN_KEY);
 	}
-	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);//TODO
+	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);//TODO  free at end
 	if(urlbuf){
 		strcpy(urlbuf, commonconfig.serverBlockEventUrl);
 		strcat(urlbuf, "|");
@@ -169,6 +172,7 @@ void sendFirewallHttpRequest(){
 	strcat(reqUrl, commonconfig.serverBlockEventUrl);
 	curl = curl_easy_init();//TODO timeout
 	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
@@ -176,6 +180,7 @@ void sendFirewallHttpRequest(){
 	curl_easy_cleanup(curl);
 	free(reqUrl);
 	free(out);
+	free(urlbuf);
 	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
 
 }
@@ -218,7 +223,7 @@ void sendFirewallHeartbeatRequest(){
 		memset(httpParams[2].key, 0, strlen("enable") + 1);
 		strcpy(httpParams[2].key, "enable");
 	}
-	if(*switchconfig.enable){
+	if(switchconfig.enable){
 		httpParams[2].value = malloc(strlen("true") + 1);
 		if(httpParams[2].value){
 			memset(httpParams[2].value, 0, strlen("true") + 1);
@@ -272,7 +277,7 @@ void* pushRequestThread(){
 		if(isBlockQueueEmpty() == 0){
 			needSleep = 0;
 			sendFirewallHttpRequest();
-			usleep(5);//TODO
+			usleep(5000);//TODO  5ms
 		}
 		else{
 			pthread_mutex_unlock(&blockqueuelock);
@@ -284,14 +289,17 @@ void* pushRequestThread(){
 }
 
 void startPushRequestThread(){
-	pthread_t tid;
-	pthread_create(&tid, NULL, pushRequestThread, NULL);
+	if(!pushblockthreadstart){
+		pushblockthreadstart = 1;
+		pthread_t tid;
+		pthread_create(&tid, NULL, pushRequestThread, NULL);
+	}
 }
 
 
 void* heartbeatThread(){
 	while(1) {
-		if(*switchconfig.clientHeartbeatEnable){
+		if(switchconfig.clientHeartbeatEnable){
 			sendFirewallHeartbeatRequest();
 		}	
 		sleep(*(commonconfig.clientHeartbeatInterval));
@@ -299,32 +307,35 @@ void* heartbeatThread(){
 }
 
 void startHeartbeatThread(){
-	pthread_t tid;
-	pthread_create(&tid, NULL, heartbeatThread, NULL);
+	if(!heartbeatthreadstart){
+		heartbeatthreadstart = 1;
+		pthread_t tid;
+		pthread_create(&tid, NULL, heartbeatThread, NULL);
+	}
 }
 
+void getVisitId(ngx_alpaca_client_loc_conf_t *aclc){
+	visitId = malloc(aclc->visitId.len + 1);
+	memset(visitId, 0, aclc->visitId.len + 1);
+	strcpy(visitId, (char*)aclc->visitId.data);
+}
 void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
-	if(!local_ip){
-		local_ip = getLocalIP();//TODO
-	}
-	else{
-		free(local_ip);
-		local_ip = getLocalIP();
-	}
+	getVisitId(aclc);
+	getLocalIP();
 	initConfigWatch(aclc, r);
 	initBlockRequestQueue();
 	startPushRequestThread();//TODO ensure start thread only once
 	startHeartbeatThread();
 }
 
-char* getLocalIP(){
+void getLocalIP(){
 	int fd;
 	struct ifreq ifr;
 	struct sockaddr_in* sin;
 	char *ip;
 	ip = (char *)malloc(32);
 	if(!ip){
-		return NULL;
+		return;
 	}
 	fd = socket(PF_INET, SOCK_DGRAM, 0);
 	memset(&ifr, 0x00, sizeof(ifr));
@@ -333,7 +344,13 @@ char* getLocalIP(){
 	close(fd);
 	sin = (struct sockaddr_in* )&ifr.ifr_addr;
 	ip = (char *)inet_ntoa(sin->sin_addr);
-	return ip;
+	if(!local_ip){
+		local_ip = ip;
+	}
+	else{
+		free(local_ip);
+		local_ip = ip;
+	}
 }
 
 void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
@@ -342,7 +359,7 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 		  "zookeeper init fail! the address is \"%V\" ",
 		  aclc->zookeeper_addr);*/
-		  
+
 		return;
 	}
 	//struct Stat stat;
@@ -350,11 +367,12 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
 	setDefault();
-	char *buffer = malloc(ZOOKEEPERBUFSIZE);//if malloc fail return what?  //TODO ,don`t use malloc
-	if(!buffer){
+	//char *buffer = malloc(ZOOKEEPERBUFSIZE);//if malloc fail return what?  //TODO ,don`t use malloc
+	char buffer[ZOOKEEPERBUFSIZE];
+	/*if(!buffer){
 		zookeeper_close(zh);
 		return;
-	}
+	}*/
 	for(i = 0; i< zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
 		memset(buffer, 0, buflen);
@@ -368,7 +386,9 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 			  aclc->zookeeper_addr);//may be should use ngx_str_t
 			//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 		}else{
-			rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+			if(buflen < ZOOKEEPERBUFSIZE){
+				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+			}
 			if(rc != 0){
 				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 				  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
@@ -377,35 +397,16 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 			}
 		}
 	}
-	free(buffer);
 	aclc->zh = zh;
 }
 
 void setDefault(){
-	switchconfig.enable = malloc(sizeof(int));  //TODO int* to int
-	if(switchconfig.enable){
-		*switchconfig.enable = 0;
-	}
-	switchconfig.pushBlockEvent = malloc(sizeof(int));
-	if(switchconfig.pushBlockEvent){
-		*switchconfig.pushBlockEvent = 0;
-	}
-	switchconfig.mount = malloc(sizeof(int));
-	if(switchconfig.mount){
-		*switchconfig.mount = 0;
-	}
-	switchconfig.blockByVid = malloc(sizeof(int));
-	if(switchconfig.blockByVid){
-		*switchconfig.blockByVid = 0;
-	}
-	switchconfig.clientHeartbeatEnable = malloc(sizeof(int));
-	if(switchconfig.clientHeartbeatEnable){
-		*switchconfig.clientHeartbeatEnable = 0;
-	}
-	switchconfig.blockByVidOnly = malloc(sizeof(int));
-	if(switchconfig.blockByVidOnly){
-		*switchconfig.blockByVidOnly = 0;
-	}
+	switchconfig.enable = 0;
+	switchconfig.pushBlockEvent = 0;
+	switchconfig.mount = 0;
+	switchconfig.blockByVid = 0;
+	switchconfig.clientHeartbeatEnable = 0;
+	switchconfig.blockByVidOnly = 0;
 	responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 	if(responsemessageconfig.denyMessage){
 		strcpy(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
@@ -508,36 +509,18 @@ int setIntPDigit(char* buf, int** key){
 	}
 }
 
-int* getIntPInstance(char* buf){
-	int *result = (int*)malloc(sizeof(int));
-	if(result == NULL){
-		return NULL;
-	}
+int getIntInstance(char* buf){
 	if(strcmp(buf, "true") == 0){
-		*result = 1;
+		return 1;
 	}
 	else{
-		*result = 0;
-	}
-	return result;
-}
-
-int setIntP(char* buf, int** key){
-	int *tmp = getIntPInstance(buf);
-	if(!tmp){
-		return -1;
-	}
-	else{
-		if(*key){
-			int *before = *key;
-			*key = tmp;
-			free(before);
-		}
-		else{
-			*key = tmp;
-		}
 		return 0;
 	}
+}
+
+int setInt(char* buf, int* key){
+	*key = getIntInstance(buf);
+	return 0;
 }
 
 List* getListPInstance(char* buf){
@@ -791,24 +774,24 @@ int setListListP(char* buf, ListList** key){
 	return 0;
 }
 
-int parsebuf(char *buf, char *key){//TODO, change to for
+int parsebuf(char *buf, char *key){
 	if(strcmp(key, "alpaca.filter.enable") == 0){
-		return setIntP(buf, &switchconfig.enable);
+		return setInt(buf, &switchconfig.enable);
 	}
 	else if(strcmp(key, "alpaca.policy.denyIPAddress") == 0){
 		return setListP(buf, &policyconfig.denyIPAddress);
 	}
 	else if(strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
-		return setIntP(buf, &switchconfig.pushBlockEvent);
+		return setInt(buf, &switchconfig.pushBlockEvent);
 	}
 	else if(strcmp(key, "alpaca.filter.mount") == 0){
-		return setIntP(buf, &switchconfig.mount);
+		return setInt(buf, &switchconfig.mount);
 	}
 	else if(strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
-		return setIntP(buf, &switchconfig.clientHeartbeatEnable);
+		return setInt(buf, &switchconfig.clientHeartbeatEnable);
 	}
 	else if(strcmp(key, "alpaca.filter.blockByVid") == 0){
-		return setIntP(buf, &switchconfig.blockByVid);
+		return setInt(buf, &switchconfig.blockByVid);
 	}
 	else if(strcmp(key, "alpaca.policy.acceptIPPrefix") == 0){
 		return setListP(buf, &policyconfig.acceptIPAddressPrefix);
@@ -834,7 +817,7 @@ int parsebuf(char *buf, char *key){//TODO, change to for
 	else if(strcmp(key, "alpaca.policy.denyIPVidRate") == 0){
 		return setTripleListP(buf, &policyconfig.denyIPVidRate);
 	}
-	else if(strcmp(key, "alpaca.policy.denyNoVisitorIdURL") == 0){
+	else if(strcmp(key, "alpaca.policy.denyNoVisitorIdURL.new") == 0){
 		return setPairListP(buf, &policyconfig.denyNOVisitorIDURL);
 	}
 	else if(strcmp(key, "alpaca.message.denyrate") == 0){
@@ -865,7 +848,7 @@ int parsebuf(char *buf, char *key){//TODO, change to for
 		return setCharP(buf, &commonconfig.serverHeartbeatUrl);
 	}
 	else if(strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
-		return setIntP(buf, &switchconfig.blockByVidOnly);
+		return setInt(buf, &switchconfig.blockByVidOnly);
 	}
 	else if(strcmp(key, "alpaca.policy.denyVisterID") == 0){
 		return setListP(buf, &policyconfig.denyVistorID);
@@ -893,7 +876,9 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 		if(strcmp(path,keyname) == 0){
 			rc = zoo_get(zh, keyname, 1, buffer, &buflen, &stat);
 			if(rc == 0){
-				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, buflen
+				if(buflen < ZOOKEEPERBUFSIZE){
+					rc = parsebuf(buffer, zookeeper_key[i]);//TODO, buflen
+				}
 				if(rc){
 					/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 						"get key \"%V\" from zookeeper but parse fail! ",
@@ -918,14 +903,14 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 	Context* context = NULL;
-	if(*switchconfig.mount == 1){
+	if(switchconfig.mount == 1){
 		context = getRequestContext(r);
 		if(context == NULL){
 			return CONTEXTSTATUSNEEDNOTRESPONSE;
 		}
 		procrequest(r, context);
 		if(responseIfNeeded(r, context, out) == CONTEXTSTATUSNEEDRESPONSE){
-			if(*switchconfig.pushBlockEvent == 1){
+			if(switchconfig.pushBlockEvent == 1){
 				int paramnum = PUSH_BLOCK_ARGS_NUM;
 				Pair* httpParams = malloc(sizeof(Pair)*paramnum);
 				if(!httpParams){
@@ -1135,12 +1120,12 @@ int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context){
 			return 0;
 		}
 		else if(strncmp((char*)context->rawUrl, commonconfig.clientEnableUrl, context->rawUrl_len) == 0){
-			*switchconfig.enable = 0;  
+			switchconfig.enable = 0;  
 			context->status = SHOWSTATUS;
 			return 0;
 		}
 		else if(strncmp((char*)context->rawUrl, commonconfig.clientDisableUrl, context->rawUrl_len) == 0){
-			*switchconfig.enable = 0;
+			switchconfig.enable = 0;
 			context->status = SHOWSTATUS;
 			return 0;
 		}
@@ -1156,16 +1141,27 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getCookie(u_char** in, ngx_http_request_t *r){
-	*in = (u_char*)strstr((char*)r->header_start, "_hc.v");// _hc.v need config
+	ngx_table_elt_t** cookies = r->headers_in.cookies.elts;
+	*in = (u_char*)strstr((char*)(*cookies)->value.data, visitId);// _hc.v need config
 	if(*in == NULL){
 		*in = NULL;
 		return 0;
 	}
-	*in = *in + strlen("_hc.v");
-	if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0){
-		(*in)++;
+	*in = *in + strlen(visitId);
+	while(1){
+		if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0 || strncmp((char*)*in, "\\", 1) == 0 ){
+			(*in)++;
+		}
+		else{
+			break;
+		}
 	}
-	u_char* end = (u_char*)strstr((char*)*in, "\"");
+	u_char* end1 = (u_char*)strstr((char*)*in, "\\");
+	u_char* end2 = (u_char*)strstr((char*)*in, "\"");
+	u_char* end3 = (u_char*)strstr((char*)*in, ";");
+	u_char* end = NULL;
+	end = (u_char*)((((!end1)?999999999:(int)end1) > ((!end2)?999999999:(int)end2)) ? ((((!end2)?999999999:(int)end2) > ((!end3)?999999999:(int)end3))?((!end3)?999999999:(int)end3):((!end2)?999999999:(int)end2)) : ((((!end1)?999999999:(int)end1)>((!end3)?999999999:(int)end3))?((!end3)?999999999:(int)end3):((!end1)?999999999:(int)end1)));
+	
 	if(end == NULL){
 		*in = NULL;
 		return 0;
@@ -1186,26 +1182,24 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->clientIP_len = r->connection->addr_text.len;
 	u_char* url = r->unparsed_uri.data;
 	int url_len = r->unparsed_uri.len;
-	//TODO
 	result->rawUrl = url;
 	result->rawUrl_len = url_len;
 	result->visitId_len = getCookie(&result->visitId, r);
-	//TODO
 	return result;
 }
 
 void handleBlockRequestIfNeeded(Context *context){
-	if(*switchconfig.enable == 1){
+	if(switchconfig.enable == 1){
 		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.acceptIPAddressPrefix) == 1){
 			context->status = PASS;
 		}
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig.acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix) ){//TODO
+		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix) ){
 			context->status = DENY_USERAGENT;
 		}
-		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddress)){
+		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddressPrefix)){
 			context->status = DENY_IP;
 		}
 		else if(context->visitId != NULL && contains((char*)context->visitId, policyconfig.denyVistorID, context->visitId_len)){
@@ -1215,9 +1209,9 @@ void handleBlockRequestIfNeeded(Context *context){
 			if(context->visitId == NULL){
 				if(context->rawUrl != NULL && policyconfig.denyNOVisitorIDURL != NULL){
 					int i;
-					int rawUrl_len = strlen((char*)context->rawUrl);
 					for(i = 0; i < policyconfig.denyNOVisitorIDURL->len; i++){
-						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i].key, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i].value,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i].value, context->httpMethod_len) == 0)){
+						int rawUrl_len = strlen(policyconfig.denyNOVisitorIDURL->list[i].key) - 2;
+						if(strncasecmp((char*)context->rawUrl, policyconfig.denyNOVisitorIDURL->list[i].key+1, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig.denyNOVisitorIDURL->list[i].value+1,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig.denyNOVisitorIDURL->list[i].value+1, context->httpMethod_len) == 0)){
 							context->status = DENY_NOVID;
 							return;
 						}
@@ -1236,11 +1230,11 @@ void handleBlockRequestIfNeeded(Context *context){
 				}
 			}
 			else{
-				if(*switchconfig.blockByVid == 1){
+				if(switchconfig.blockByVid == 1){
 					if(policyconfig.denyIPVidRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyIPVidRate->len; i++){
-							if(strncmp(policyconfig.denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig.denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig.denyIPVidRate->list[i].key.value, (char*)context->rawUrl, strlen(policyconfig.denyIPVidRate->list[i].key.value)) == 0){
+							if(strncmp(policyconfig.denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig.denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig.denyIPVidRate->list[i].key.value, (char*)context->visitId, strlen(policyconfig.denyIPVidRate->list[i].key.value)) == 0){
 
 								if(compareDate(policyconfig.denyIPVidRate->list[i].value) == 1){
 									context->status = DENY_IPVIDRATE;
@@ -1264,7 +1258,7 @@ void handleBlockRequestIfNeeded(Context *context){
 						}
 					}
 				}
-				if(*switchconfig.blockByVidOnly == 1){
+				if(switchconfig.blockByVidOnly == 1){
 					if(policyconfig.denyVistorIDRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyVistorIDRate->len; i++){
@@ -1286,7 +1280,7 @@ void handleBlockRequestIfNeeded(Context *context){
 }
 
 int compareDate(char* forbidDate){
-	int len = strlen(forbidDate);
+	int len = strlen(forbidDate) - 2;
 	int i;
 	int j = 0;
 	int num = 0;
@@ -1302,7 +1296,7 @@ int compareDate(char* forbidDate){
 	date[4] = local->tm_min;
 	date[5] = local->tm_sec;
 	for(i = 0; i < len; i++){
-		if(isdigit(forbidDate[i])){
+		if(isdigit(forbidDate[i + 1])){
 			num = num * 10 + atoi(&forbidDate[i]);
 		}
 		else{
@@ -1430,26 +1424,18 @@ cJSON* dumpStatus(){
 	cJSON* obj;
 	cJSON* item;
 	obj = cJSON_CreateObject();
-	if(switchconfig.enable != NULL){
-		item = cJSON_CreateBool(*switchconfig.enable);
-		cJSON_AddItemToObject(obj, zookeeper_key[0], item);
-	}
+	item = cJSON_CreateBool(switchconfig.enable);
+	cJSON_AddItemToObject(obj, zookeeper_key[0], item);
 	/*if(switchconfig.running != NULL){
-		item = cJSON_CreateBool(*switchconfig.running);
-		cJSON_AddItemToObject(obj, "running", item);
-	}*/
-	if(switchconfig.pushBlockEvent != NULL){
-		item = cJSON_CreateBool(*switchconfig.pushBlockEvent);
-		cJSON_AddItemToObject(obj, zookeeper_key[2], item);
-	}
-	if(switchconfig.mount != NULL){
-		item = cJSON_CreateBool(*switchconfig.mount);
-		cJSON_AddItemToObject(obj, zookeeper_key[3], item);
-	}
-	if(switchconfig.blockByVid != NULL){
-		item = cJSON_CreateBool(*switchconfig.blockByVid);
-		cJSON_AddItemToObject(obj, zookeeper_key[5], item);
-	}
+	  item = cJSON_CreateBool(*switchconfig.running);
+	  cJSON_AddItemToObject(obj, "running", item);
+	  }*/
+	item = cJSON_CreateBool(switchconfig.pushBlockEvent);
+	cJSON_AddItemToObject(obj, zookeeper_key[2], item);
+	item = cJSON_CreateBool(switchconfig.mount);
+	cJSON_AddItemToObject(obj, zookeeper_key[3], item);
+	item = cJSON_CreateBool(switchconfig.blockByVid);
+	cJSON_AddItemToObject(obj, zookeeper_key[5], item);
 	if(policyconfig.acceptIPAddressPrefix != NULL){
 		item = formatCharPP(policyconfig.acceptIPAddressPrefix->list, policyconfig.acceptIPAddressPrefix->len);
 		cJSON_AddItemToObject(obj, zookeeper_key[6], item);

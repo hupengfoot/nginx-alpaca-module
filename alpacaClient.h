@@ -9,6 +9,7 @@ typedef struct{
 	zhandle_t *zh;
 	ngx_str_t zookeeper_addr;
 	ngx_str_t ecdata;
+	ngx_str_t visitId;
 	ngx_flag_t enable;
 } ngx_alpaca_client_loc_conf_t;
 

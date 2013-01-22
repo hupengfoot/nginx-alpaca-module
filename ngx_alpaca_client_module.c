@@ -26,11 +26,17 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_loc_conf_t, enable),
 		NULL },
-	{ ngx_string("alpaca_zoo"),
+	{ ngx_string("alpaca_zk"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_loc_conf_t, zookeeper_addr),
+		NULL },
+	{ ngx_string("alpaca_vid"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_loc_conf_t, visitId),
 		NULL },
 
 	ngx_null_command
@@ -126,6 +132,8 @@ ngx_alpaca_client_create_loc_conf(ngx_conf_t *cf)
 	conf->ecdata.data = NULL;
 	conf->zookeeper_addr.len = 0;
 	conf->zookeeper_addr.data = NULL;
+	conf->visitId.len = 0;
+	conf->visitId.data = NULL;
 	conf->zh = NGX_CONF_UNSET_PTR;
 	conf->enable = NGX_CONF_UNSET;
 	return conf;
@@ -147,6 +155,7 @@ ngx_alpaca_client_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
 	ngx_conf_merge_str_value(conf->ecdata, prev->ecdata, 10);
 	ngx_conf_merge_str_value(conf->zookeeper_addr, prev->zookeeper_addr, "localhost:2181");
+	ngx_conf_merge_str_value(conf->visitId, prev->visitId, "_hc.v");
 	ngx_conf_merge_value(conf->enable, prev->enable, 0);
 	ngx_conf_merge_ptr_value(conf->zh, prev->zh, NULL);
 	return NGX_CONF_OK;

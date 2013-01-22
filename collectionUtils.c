@@ -6,8 +6,8 @@ int startWithIgnoreCaseContains(char* target, List* collection){
 		int i;
 		int len = 0;
 		for(i = 0; i < collection->len; i++){
-			len = strlen(collection->list[i]);
-			if(strncasecmp(collection->list[i], target, len) == 0){
+			len = strlen(collection->list[i]) - 2;
+			if(strncasecmp(collection->list[i]+1, target, len) == 0){
 				return 1;
 			}
 		}
