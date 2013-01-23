@@ -1248,7 +1248,7 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig.denyIPAddressRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyIPAddressRate->len; i++){
-							if(strncmp(policyconfig.denyIPAddressRate->list[i].key, (char*)context->clientIP, strlen(policyconfig.denyIPAddressRate->list[i].key))){
+							if(strncmp(policyconfig.denyIPAddressRate->list[i].key+1, (char*)context->clientIP, strlen(policyconfig.denyIPAddressRate->list[i].key)-2) == 0){
 
 								if(compareDate(policyconfig.denyIPAddressRate->list[i].value) == 1){
 									context->status = DENY_IPRATE;
@@ -1262,7 +1262,7 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig.denyVistorIDRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig.denyVistorIDRate->len; i++){
-							if(strncmp(policyconfig.denyVistorIDRate->list[i].key, (char*)context->visitId, strlen(policyconfig.denyVistorIDRate->list[i].key))){
+							if(strncmp(policyconfig.denyVistorIDRate->list[i].key+1, (char*)context->visitId, strlen(policyconfig.denyVistorIDRate->list[i].key)-2) == 0){
 
 								if(compareDate(policyconfig.denyVistorIDRate->list[i].value) == 1){
 									context->status = DENY_VIDRATE;
@@ -1329,6 +1329,7 @@ int responseIfNeeded(ngx_http_request_t *r, Context *context, ngx_chain_t **out)
 			return CONTEXTSTATUSNEEDRESPONSE;
 		case DENY_IPRATE:
 		case DENY_IPVIDRATE:
+		case DENY_VIDRATE:
 			responseDenyRateMessage(r, context, out);
 			return CONTEXTSTATUSNEEDRESPONSE;
 		default:
