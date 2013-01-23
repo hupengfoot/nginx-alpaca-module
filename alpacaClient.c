@@ -1170,7 +1170,7 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 		*in = NULL;
 		return 0;
 	}
-	return (end - (*in) - 1);
+	return (end - (*in));
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
