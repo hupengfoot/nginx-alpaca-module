@@ -41,7 +41,11 @@
 #define DEFAULT_CLIENT_URL_VALIDATECODE "/deny.code"
 #define ALPACA_CLIENT_VERSION "0.35"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
-
+#ifdef __x86_64__
+#define U_CHAR long
+#elif __i386__
+#define U_CHAR int
+#endif
 
 pthread_mutex_t blockqueuelock;
 static int heartbeatthreadstart;
@@ -1160,7 +1164,7 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 	u_char* end2 = (u_char*)strstr((char*)*in, "\"");
 	u_char* end3 = (u_char*)strstr((char*)*in, ";");
 	u_char* end = NULL;
-	end = (u_char*)((((!end1)?999999999:(int)end1) > ((!end2)?999999999:(int)end2)) ? ((((!end2)?999999999:(int)end2) > ((!end3)?999999999:(int)end3))?((!end3)?999999999:(int)end3):((!end2)?999999999:(int)end2)) : ((((!end1)?999999999:(int)end1)>((!end3)?999999999:(int)end3))?((!end3)?999999999:(int)end3):((!end1)?999999999:(int)end1)));
+	end = (u_char*)((((!end1)?999999999:(U_CHAR)end1) > ((!end2)?999999999:(U_CHAR)end2)) ? ((((!end2)?999999999:(U_CHAR)end2) > ((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end2)?999999999:(U_CHAR)end2)) : ((((!end1)?999999999:(U_CHAR)end1)>((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end1)?999999999:(U_CHAR)end1)));
 	
 	if(end == NULL){
 		*in = NULL;
