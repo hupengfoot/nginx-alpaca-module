@@ -1166,7 +1166,7 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 		*in = NULL;
 		return 0;
 	}
-	return ((int)end - (int)(*in) - 1);
+	return (end - (*in) - 1);
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
@@ -1517,7 +1517,7 @@ cJSON* formatListPP(List* key, int key_len){
 	cJSON *obj;
 	obj = cJSON_CreateArray();
 	cJSON *item;
-	cJSON *list;
+	cJSON *list = NULL;
 	for(i = 0; i < key_len; i++){
 		for(j = 0; j < key[i].len; j++){
 			list = cJSON_CreateArray();
