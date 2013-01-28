@@ -39,7 +39,7 @@
 #define DEFAULT_CLIENT_HEARTBEAT_INTERVAL 180
 #define DEFAULT_CLIENT_URL_STATUS "/dianping.firewall.client.status"
 #define DEFAULT_CLIENT_URL_VALIDATECODE "/deny.code"
-#define ALPACA_CLIENT_VERSION "0.35"
+#define ALPACA_CLIENT_VERSION "0.2.8"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
 #ifdef __x86_64__
 #define U_CHAR long
@@ -294,11 +294,16 @@ void* pushRequestThread(){
 	}
 }
 
-void startPushRequestThread(){
+void startPushRequestThread(ngx_http_request_t *r){
 	if(!pushblockthreadstart){
 		pushblockthreadstart = 1;
 		pthread_t tid;
-		pthread_create(&tid, NULL, pushRequestThread, NULL);
+		tid = pthread_create(&tid, NULL, pushRequestThread, NULL);
+		if(tid){
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+					"start push request thread, error num is \"%d\" ",
+					tid);
+		}
 	}
 }
 
@@ -312,17 +317,25 @@ void* heartbeatThread(){
 	}
 }
 
-void startHeartbeatThread(){
+void startHeartbeatThread(ngx_http_request_t *r){
 	if(!heartbeatthreadstart){
 		heartbeatthreadstart = 1;
 		pthread_t tid;
-		pthread_create(&tid, NULL, heartbeatThread, NULL);
+		tid = pthread_create(&tid, NULL, heartbeatThread, NULL);
+		if(tid){
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+					"start heart beat thread, error num is \"%d\" ",
+					tid);
+		}
 	}
 }
 
 void getVisitId(ngx_alpaca_client_loc_conf_t *aclc){
 	visitId = malloc(aclc->visitId.len + 1);
 	memset(visitId, 0, aclc->visitId.len + 1);
+	if(visitId == NULL){
+		return;
+	}
 	strcpy(visitId, (char*)aclc->visitId.data);
 }
 void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
@@ -330,8 +343,8 @@ void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	getLocalIP();
 	initConfigWatch(aclc, r);
 	initBlockRequestQueue();
-	startPushRequestThread();//TODO ensure start thread only once
-	startHeartbeatThread();
+	startPushRequestThread(r);//TODO ensure start thread only once
+	startHeartbeatThread(r);
 }
 
 void getLocalIP(){
@@ -339,7 +352,7 @@ void getLocalIP(){
 	struct ifreq ifr;
 	struct sockaddr_in* sin;
 	char *ip;
-	ip = (char *)malloc(32);
+	ip = (char*)malloc(32);
 	if(!ip){
 		return;
 	}
@@ -350,22 +363,15 @@ void getLocalIP(){
 	close(fd);
 	sin = (struct sockaddr_in* )&ifr.ifr_addr;
 	ip = (char *)inet_ntoa(sin->sin_addr);
-	if(!local_ip){
-		local_ip = ip;
-	}
-	else{
-		free(local_ip);
-		local_ip = ip;
-	}
+	local_ip = ip;
 }
 
 void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	zh = zookeeper_init((char *)aclc->zookeeper_addr.data, watcher, 10000, 0, 0, 0);
 	if(!zh){
-		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-		  "zookeeper init fail! the address is \"%V\" ",
-		  aclc->zookeeper_addr);*/
-
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+				"zookeeper init fail! the address is \"%V\" ",
+				aclc->zookeeper_addr);
 		return;
 	}
 	//struct Stat stat;
@@ -382,10 +388,12 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	for(i = 0; i< zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
 		memset(buffer, 0, buflen);
-		char *keyname = malloc(sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1);
+		char *keyname = ngx_pcalloc(r->pool, sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1);
+		if(!keyname){
+			continue;
+		}
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);
-		free(keyname);
 		if(rc != 0){
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 			  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
@@ -1141,6 +1149,26 @@ int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context){
 
 int isFirewallRequest(ngx_http_request_t *r){
 	if(r != NULL && strncasecmp((char*)r->method_name.data, "POST", r->method_name.len) == 0){
+		if(r->header_name_start){
+			char* token = strstr((char*)r->header_name_start, TOKEN_KEY);
+			token = token + strlen(TOKEN_KEY) + 1;
+			char* token_compute = ngx_pcalloc(r->pool, r->connection->addr_text.len + r->unparsed_uri.len + 1);
+			if(!token_compute){
+				return 0;
+			}
+			strncpy(token_compute, (char*)r->unparsed_uri.data, r->unparsed_uri.len);
+			strcat(token_compute, "|");
+			strncat(token_compute, (char*)r->connection->addr_text.data, r->connection->addr_text.len);
+			if(strncmp(getmd5(token_compute), token, 32) == 0){
+				return 1;
+			}
+			else{
+				return 0;
+			}
+		}
+		else{
+			return 0;
+			}
 		return 1;		
 	}
 	return 0;	
@@ -1185,7 +1213,7 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
-	Context* result = malloc(sizeof(Context));
+	Context* result = ngx_pcalloc(r->pool, sizeof(Context));
 	if(result == NULL){
 		return NULL;
 	}
