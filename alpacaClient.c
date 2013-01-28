@@ -145,6 +145,7 @@ void sendFirewallHttpRequest(){
 	}
 	char *out = malloc(DEFAULT_BLOCK_MAX_LENTH);
 	if(!out){
+		free(reqUrl);
 		return;
 	}
 	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
@@ -169,6 +170,7 @@ void sendFirewallHttpRequest(){
 	if(PairUrlEncode(httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
 		free(reqUrl);
 		free(out);
+		free(urlbuf);
 		return;
 	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
@@ -374,9 +376,9 @@ void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
 	//char *buffer = malloc(ZOOKEEPERBUFSIZE);//if malloc fail return what?  //TODO ,don`t use malloc
 	char buffer[ZOOKEEPERBUFSIZE];
 	/*if(!buffer){
-		zookeeper_close(zh);
-		return;
-	}*/
+	  zookeeper_close(zh);
+	  return;
+	  }*/
 	for(i = 0; i< zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
 		memset(buffer, 0, buflen);
@@ -1145,32 +1147,41 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getCookie(u_char** in, ngx_http_request_t *r){
+	if(r->headers_in.cookies.nelts == 0){
+		*in = NULL;
+		return 0;
+	}
 	ngx_table_elt_t** cookies = r->headers_in.cookies.elts;
-	*in = (u_char*)strstr((char*)(*cookies)->value.data, visitId);// _hc.v need config
-	if(*in == NULL){
-		*in = NULL;
-		return 0;
-	}
-	*in = *in + strlen(visitId);
-	while(1){
-		if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0 || strncmp((char*)*in, "\\", 1) == 0 ){
-			(*in)++;
+	int i = 0;
+	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
+
+		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
+		if(*in == NULL){
+			continue;
 		}
-		else{
-			break;
+		*in = *in + strlen(visitId);
+		while(1){
+			if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0 || strncmp((char*)*in, "\\", 1) == 0 ){
+				(*in)++;
+			}
+			else{
+				break;
+			}
 		}
+		u_char* end1 = (u_char*)strstr((char*)*in, "\\");
+		u_char* end2 = (u_char*)strstr((char*)*in, "\"");
+		u_char* end3 = (u_char*)strstr((char*)*in, ";");
+		u_char* end = NULL;
+		end = (u_char*)((((!end1)?999999999:(U_CHAR)end1) > ((!end2)?999999999:(U_CHAR)end2)) ? ((((!end2)?999999999:(U_CHAR)end2) > ((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end2)?999999999:(U_CHAR)end2)) : ((((!end1)?999999999:(U_CHAR)end1)>((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end1)?999999999:(U_CHAR)end1)));
+
+		if(end == NULL){
+			*in = NULL;
+			return 0;
+		}
+		return (end - (*in));
 	}
-	u_char* end1 = (u_char*)strstr((char*)*in, "\\");
-	u_char* end2 = (u_char*)strstr((char*)*in, "\"");
-	u_char* end3 = (u_char*)strstr((char*)*in, ";");
-	u_char* end = NULL;
-	end = (u_char*)((((!end1)?999999999:(U_CHAR)end1) > ((!end2)?999999999:(U_CHAR)end2)) ? ((((!end2)?999999999:(U_CHAR)end2) > ((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end2)?999999999:(U_CHAR)end2)) : ((((!end1)?999999999:(U_CHAR)end1)>((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end1)?999999999:(U_CHAR)end1)));
-	
-	if(end == NULL){
-		*in = NULL;
-		return 0;
-	}
-	return (end - (*in));
+	*in = NULL;
+	return 0;
 }
 
 Context* getRequestContext(ngx_http_request_t *r){
