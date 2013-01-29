@@ -330,7 +330,7 @@ void startHeartbeatThread(ngx_http_request_t *r){
 	}
 }
 
-void getVisitId(ngx_alpaca_client_srv_conf_t *aclc){
+void getVisitId(ngx_alpaca_client_main_conf_t *aclc){
 	visitId = malloc(aclc->visitId.len + 1);
 	memset(visitId, 0, aclc->visitId.len + 1);
 	if(visitId == NULL){
@@ -338,7 +338,7 @@ void getVisitId(ngx_alpaca_client_srv_conf_t *aclc){
 	}
 	strcpy(visitId, (char*)aclc->visitId.data);
 }
-void init(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r){
+void init(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r){
 	getVisitId(aclc);
 	getLocalIP();
 	initConfigWatch(aclc, r);
@@ -366,7 +366,7 @@ void getLocalIP(){
 	local_ip = ip;
 }
 
-void initConfigWatch(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r){
+void initConfigWatch(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r){
 	zh = zookeeper_init((char *)aclc->zookeeper_addr.data, watcher, 10000, 0, 0, 0);
 	if(!zh){
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -411,7 +411,7 @@ void initConfigWatch(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r){
 			}
 		}
 	}
-	aclc->zh = zh;
+	aclc->zh = 1;
 }
 
 void setDefault(){
@@ -1134,7 +1134,7 @@ int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context){
 			return 0;
 		}
 		else if(strncmp((char*)context->rawUrl, commonconfig.clientEnableUrl, context->rawUrl_len) == 0){
-			switchconfig.enable = 0;  
+			switchconfig.enable = 1;  
 			context->status = SHOWSTATUS;
 			return 0;
 		}
@@ -1152,13 +1152,13 @@ int isFirewallRequest(ngx_http_request_t *r){
 		if(r->header_name_start){
 			char* token = strstr((char*)r->header_name_start, TOKEN_KEY);
 			token = token + strlen(TOKEN_KEY) + 1;
-			char* token_compute = ngx_pcalloc(r->pool, r->connection->addr_text.len + r->unparsed_uri.len + 1);
+			char* token_compute = ngx_pcalloc(r->pool, r->connection->addr_text.len + r->unparsed_uri.len + 2);
 			if(!token_compute){
 				return 0;
 			}
 			strncpy(token_compute, (char*)r->unparsed_uri.data, r->unparsed_uri.len);
 			strcat(token_compute, "|");
-			strncat(token_compute, (char*)r->connection->addr_text.data, r->connection->addr_text.len);
+			strcat(token_compute, local_ip);
 			if(strncmp(getmd5(token_compute), token, 32) == 0){
 				return 1;
 			}
