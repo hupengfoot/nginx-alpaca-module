@@ -11,7 +11,7 @@ typedef struct{
 	ngx_str_t ecdata;
 	ngx_str_t visitId;
 	ngx_flag_t enable;
-} ngx_alpaca_client_loc_conf_t;
+} ngx_alpaca_client_srv_conf_t;
 
 enum status {
 	DENY_VID = 407,
@@ -42,8 +42,8 @@ typedef struct{
 	size_t visitId_len;
 }Context;
 
-void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r);
-void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r);
+void init(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r);
+void initConfigWatch(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r);
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out);
 
 

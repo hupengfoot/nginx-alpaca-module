@@ -14,8 +14,8 @@
 
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
-static void *ngx_alpaca_client_create_loc_conf(ngx_conf_t *cf);
-static char *ngx_alpaca_client_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+static void *ngx_alpaca_client_create_srv_conf(ngx_conf_t *cf);
+static char *ngx_alpaca_client_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child);
 
 
 static ngx_command_t  ngx_alpaca_client_commands[] = {
@@ -23,20 +23,20 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 	{ ngx_string("alpaca"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_alpaca_client_loc_conf_t, enable),
+		NGX_HTTP_SRV_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_srv_conf_t, enable),
 		NULL },
 	{ ngx_string("alpaca_zk"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_alpaca_client_loc_conf_t, zookeeper_addr),
+		NGX_HTTP_SRV_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_srv_conf_t, zookeeper_addr),
 		NULL },
 	{ ngx_string("alpaca_vid"),
 		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
-		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_alpaca_client_loc_conf_t, visitId),
+		NGX_HTTP_SRV_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_srv_conf_t, visitId),
 		NULL },
 
 	ngx_null_command
@@ -50,11 +50,11 @@ static ngx_http_module_t  ngx_alpaca_client_module_ctx = {
 	NULL,                                  /* create main configuration */
 	NULL,                                  /* init main configuration */
 
-	NULL,                                  /* create server configuration */
-	NULL,                                  /* merge server configuration */
+	ngx_alpaca_client_create_srv_conf,                                  /* create server configuration */
+	ngx_alpaca_client_merge_srv_conf,                                  /* merge server configuration */
 
-	ngx_alpaca_client_create_loc_conf,       /* create location configuration */
-	ngx_alpaca_client_merge_loc_conf        /* merge location configuration */
+	NULL,       /* create location configuration */
+	NULL        /* merge location configuration */
 };
 
 
@@ -77,11 +77,11 @@ ngx_module_t  ngx_alpaca_client_module = {
 	static ngx_int_t
 ngx_alpaca_client_handler(ngx_http_request_t *r)
 {
-	ngx_alpaca_client_loc_conf_t *ahlf;
+	ngx_alpaca_client_srv_conf_t *ahlf;
 	ngx_int_t                  rc;
 	ngx_chain_t                *out = NULL;
 
-	ahlf = ngx_http_get_module_loc_conf(r, ngx_alpaca_client_module);
+	ahlf = ngx_http_get_module_srv_conf(r, ngx_alpaca_client_module);
 	if(ahlf->zh == NULL){
 		init(ahlf, r);
 	}
@@ -118,12 +118,12 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 }
 
 	static void *
-ngx_alpaca_client_create_loc_conf(ngx_conf_t *cf)
+ngx_alpaca_client_create_srv_conf(ngx_conf_t *cf)
 {
 	printf("called:ngx_alpaca_client_create_loc_conf\n");
-	ngx_alpaca_client_loc_conf_t *conf;
+	ngx_alpaca_client_srv_conf_t *conf;
 
-	conf = ngx_pcalloc(cf->pool, sizeof(ngx_alpaca_client_loc_conf_t));
+	conf = ngx_pcalloc(cf->pool, sizeof(ngx_alpaca_client_srv_conf_t));
 	if (conf == NULL) {
 		return NGX_CONF_ERROR;
 	}
@@ -139,11 +139,11 @@ ngx_alpaca_client_create_loc_conf(ngx_conf_t *cf)
 	return conf;
 }
 	static char *
-ngx_alpaca_client_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_alpaca_client_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
 	printf("called:ngx_echo_merge_loc_conf\n");
-	ngx_alpaca_client_loc_conf_t *prev = parent;
-	ngx_alpaca_client_loc_conf_t *conf = child;
+	ngx_alpaca_client_srv_conf_t *prev = parent;
+	ngx_alpaca_client_srv_conf_t *conf = child;
 
 	/*conf->zh = zookeeper_init("localhost:2181", watcher, 10000, 0, conf, 0);
 	  char *buffer = malloc(512);

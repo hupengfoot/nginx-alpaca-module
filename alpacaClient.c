@@ -330,7 +330,7 @@ void startHeartbeatThread(ngx_http_request_t *r){
 	}
 }
 
-void getVisitId(ngx_alpaca_client_loc_conf_t *aclc){
+void getVisitId(ngx_alpaca_client_srv_conf_t *aclc){
 	visitId = malloc(aclc->visitId.len + 1);
 	memset(visitId, 0, aclc->visitId.len + 1);
 	if(visitId == NULL){
@@ -338,7 +338,7 @@ void getVisitId(ngx_alpaca_client_loc_conf_t *aclc){
 	}
 	strcpy(visitId, (char*)aclc->visitId.data);
 }
-void init(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
+void init(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r){
 	getVisitId(aclc);
 	getLocalIP();
 	initConfigWatch(aclc, r);
@@ -366,7 +366,7 @@ void getLocalIP(){
 	local_ip = ip;
 }
 
-void initConfigWatch(ngx_alpaca_client_loc_conf_t *aclc, ngx_http_request_t *r){
+void initConfigWatch(ngx_alpaca_client_srv_conf_t *aclc, ngx_http_request_t *r){
 	zh = zookeeper_init((char *)aclc->zookeeper_addr.data, watcher, 10000, 0, 0, 0);
 	if(!zh){
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
