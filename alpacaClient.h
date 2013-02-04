@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 
 
+
 #define CONTEXTSTATUSNEEDNOTRESPONSE -1
 #define CONTEXTSTATUSNEEDRESPONSE 0
 
@@ -12,6 +13,7 @@ typedef struct{
 	ngx_str_t visitId;
 	ngx_flag_t enable;
 } ngx_alpaca_client_main_conf_t;
+
 
 enum status {
 	DENY_VID = 407,

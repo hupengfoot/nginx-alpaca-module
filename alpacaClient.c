@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <curl/curl.h>
+#include <time.h>
 
 #include "switchconfig.h"
 #include "responsemessageconfig.h"
@@ -41,11 +42,13 @@
 #define DEFAULT_CLIENT_URL_VALIDATECODE "/deny.code"
 #define ALPACA_CLIENT_VERSION "0.2.8"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
+#define EXPIRETIME 180
 #ifdef __x86_64__
 #define U_CHAR long
 #elif __i386__
 #define U_CHAR int
 #endif
+
 
 pthread_mutex_t blockqueuelock;
 static int heartbeatthreadstart;
@@ -53,6 +56,7 @@ static int pushblockthreadstart;
 static char* visitId;
 static zhandle_t *zh;
 static char* local_ip;
+static time_t expiretime;
 static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyIPVidRate", "alpaca.policy.denyNoVisitorIdURL.new", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
@@ -87,13 +91,15 @@ cJSON* dumpStatus();
 cJSON* formatCharPP(char** key, int key_len);
 cJSON* formatPairPP(Pair* key, int key_len);
 cJSON* formatListPP(List* key, int key_len);
-char* getResponseDenyMessage(Context *context);
-char* getResponseDenyRateMessage(Context *context);
-char* getNowLogTime();
+char* getResponseDenyMessage(ngx_http_request_t *r, Context *context);
+char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context);
+char* getNowLogTime(alpaca_memory_pool* pool);
 
-char* getHttpStatus(enum status s){
-	char* buf = malloc(sizeof(char) * 4);
-	memset(buf, 0, sizeof(char) * 4);
+char* getHttpStatus(alpaca_memory_pool* pool, enum status s){
+	char* buf = alpaca_memory_poll_malloc(pool, sizeof(char) * 4);
+	if(!buf){
+		return NULL;
+	}
 	int compute = (int)s;
 	sprintf(buf, "%d%d%d", compute/100, (compute/10)%10, compute%100);
 	return buf;
@@ -101,7 +107,7 @@ char* getHttpStatus(enum status s){
 void initBlockRequestQueue(){
 	blockRequestQueue.head = 0;
 	blockRequestQueue.tail = 0;
-	blockRequestQueue.size = BLOCKREQUESTQUEUESIZE;
+	blockRequestQueue.size = BLOCKREQUESTQUEUESIZE + 1;
 	pthread_mutex_init(&blockqueuelock, NULL);
 }
 
@@ -138,39 +144,34 @@ int PairUrlEncode(Pair* httpParams, char* out, int len){
 }
 
 void sendFirewallHttpRequest(){
+	httpParams_pool* httpParams = blockQueuePoll();
 	CURL *curl;
-	char *reqUrl = malloc(strlen(commonconfig.serverRoot) + strlen(commonconfig.serverBlockEventUrl) + 1);
+	char *reqUrl = alpaca_memory_poll_malloc(httpParams->pool, strlen(commonconfig.serverRoot) + strlen(commonconfig.serverBlockEventUrl) + 1);
 	if(!reqUrl){
 		return;
 	}
-	char *out = malloc(DEFAULT_BLOCK_MAX_LENTH);
+	char *out = alpaca_memory_poll_malloc(httpParams->pool, DEFAULT_BLOCK_MAX_LENTH);
 	if(!out){
-		free(reqUrl);
 		return;
 	}
-	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
-	Pair* httpParams = blockQueuePoll();
-	httpParams[8].key = malloc(strlen(TOKEN_KEY) + 1);//TODO  free at poll
-	if(httpParams[8].key){
-		memset(httpParams[8].key, 0, strlen(TOKEN_KEY) + 1);
-		strcpy(httpParams[8].key, TOKEN_KEY);
+	httpParams->httpParams[8].key = alpaca_memory_poll_malloc(httpParams->pool, strlen(TOKEN_KEY) + 1);//TODO  free at poll
+	if(!httpParams->httpParams[8].key){
+		return;
 	}
-	char* urlbuf = malloc(strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);//TODO  free at end
-	if(urlbuf){
-		strcpy(urlbuf, commonconfig.serverBlockEventUrl);
-		strcat(urlbuf, "|");
-		strcat(urlbuf, local_ip);
+	strcpy(httpParams->httpParams[8].key, TOKEN_KEY);
+	char* urlbuf = alpaca_memory_poll_malloc(httpParams->pool, strlen(commonconfig.serverBlockEventUrl) + strlen(local_ip) + 2);//TODO  free at end
+	if(!urlbuf){
+		return;
 	}
-	httpParams[8].value = getmd5(urlbuf);
-	if(httpParams[8].value){
-		strcat(httpParams[8].value, "\0");
+	strcpy(urlbuf, commonconfig.serverBlockEventUrl);
+	strcat(urlbuf, "|");
+	strcat(urlbuf, local_ip);
+	httpParams->httpParams[8].value = getmd5(urlbuf);
+	if(!httpParams->httpParams[8].value){
+		return;
 	}
-	pthread_mutex_unlock(&blockqueuelock);
-
-	if(PairUrlEncode(httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
-		free(reqUrl);
-		free(out);
-		free(urlbuf);
+	strcat(httpParams->httpParams[8].value, "\0");
+	if(PairUrlEncode(httpParams->httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
 		return;
 	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
@@ -184,82 +185,103 @@ void sendFirewallHttpRequest(){
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
-	free(reqUrl);
-	free(out);
-	free(urlbuf);
 	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
 
+	if(time(NULL) > expiretime){
+		while(freelist){
+			httpParams_pool_list* freelist_head;
+			do{
+				freelist_head = freelist;
+			}while(!__sync_bool_compare_and_swap(&freelist, freelist_head, freelist_head->next));
+			alpaca_memory_poll_destroy(freelist_head->value->pool);		
+		}
+		expiretime = time(NULL) + EXPIRETIME;
+	}
 }
 
 void sendFirewallHeartbeatRequest(){
+	alpaca_memory_pool* p = alpaca_memory_pool_create();
+	if(!p){
+		return;
+	}
 	CURL *curl;
-	char *reqUrl = malloc(strlen(commonconfig.serverRoot) + strlen(commonconfig.serverHeartbeatUrl) + 1);
+	char *reqUrl = alpaca_memory_poll_malloc(p, strlen(commonconfig.serverRoot) + strlen(commonconfig.serverHeartbeatUrl) + 1);
 	if(!reqUrl){
+		alpaca_memory_poll_destroy(p);
 		return;
 	}
-	char *out = malloc(DEFAULT_HEARTBEAT_MAX_LENTH);
+	char *out = alpaca_memory_poll_malloc(p, DEFAULT_HEARTBEAT_MAX_LENTH);
 	if(!out){
+		alpaca_memory_poll_destroy(p);
 		return;
 	}
-	memset(out, 0, DEFAULT_BLOCK_MAX_LENTH);
 	int paramnum = 4;
-	Pair* httpParams = malloc(sizeof(Pair)*paramnum);
-	httpParams[0].key = malloc(strlen("clientIP") + 1);
-	if(httpParams[0].key){
-		memset(httpParams[0].key, 0, strlen("clientIP") + 1);
-		strcpy(httpParams[0].key, "clientIP");
+	Pair* httpParams = alpaca_memory_poll_malloc(p, sizeof(Pair)*paramnum);
+	httpParams[0].key = alpaca_memory_poll_malloc(p, strlen("clientIP") + 1);
+	if(!httpParams[0].key){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
-	httpParams[0].value = malloc(strlen(local_ip) + 1);
-	if(httpParams[0].value){
-		memset(httpParams[0].value, 0, strlen(local_ip) +1);
-		strcpy(httpParams[0].value, local_ip);
+	strcpy(httpParams[0].key, "clientIP");
+	httpParams[0].value = alpaca_memory_poll_malloc(p, strlen(local_ip) + 1);
+	if(!httpParams[0].value){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
-	httpParams[1].key = malloc(strlen("version") + 1);
-	if(httpParams[1].key){
-		memset(httpParams[1].key, 0, strlen("version") + 1);
-		strcpy(httpParams[1].key, "version");
+	strcpy(httpParams[0].value, local_ip);
+	httpParams[1].key = alpaca_memory_poll_malloc(p, strlen("version") + 1);
+	if(!httpParams[1].key){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
-	httpParams[1].value = malloc(strlen(ALPACA_CLIENT_VERSION) + 1);
-	if(httpParams[1].value){
-		memset(httpParams[1].value, 0, strlen(ALPACA_CLIENT_VERSION) + 1);
-		strcpy(httpParams[1].value, ALPACA_CLIENT_VERSION);
+	strcpy(httpParams[1].key, "version");
+	httpParams[1].value = alpaca_memory_poll_malloc(p, strlen(ALPACA_CLIENT_VERSION) + 1);
+	if(!httpParams[1].value){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
-	httpParams[2].key = malloc(strlen("enable") + 1);
-	if(httpParams[2].key){
-		memset(httpParams[2].key, 0, strlen("enable") + 1);
-		strcpy(httpParams[2].key, "enable");
+	strcpy(httpParams[1].value, ALPACA_CLIENT_VERSION);
+	httpParams[2].key = alpaca_memory_poll_malloc(p, strlen("enable") + 1);
+	if(!httpParams[2].key){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
+	strcpy(httpParams[2].key, "enable");
 	if(switchconfig.enable){
-		httpParams[2].value = malloc(strlen("true") + 1);
-		if(httpParams[2].value){
-			memset(httpParams[2].value, 0, strlen("true") + 1);
-			strcpy(httpParams[2].value, "true");
+		httpParams[2].value = alpaca_memory_poll_malloc(p, strlen("true") + 1);
+		if(!httpParams[2].value){
+			alpaca_memory_poll_destroy(p);
+			return;
 		}
+		strcpy(httpParams[2].value, "true");
 	}
 	else{
-		httpParams[2].value = malloc(strlen("false") + 1);
-		if(httpParams[2].value){
-			memset(httpParams[2].value, 0, strlen("false") + 1);
-			strcpy(httpParams[2].value, "false");
+		httpParams[2].value = alpaca_memory_poll_malloc(p, strlen("false") + 1);
+		if(!httpParams[2].value){
+			alpaca_memory_poll_destroy(p);
+			return;
 		}
+		strcpy(httpParams[2].value, "false");
 	}
-	httpParams[3].key = malloc(strlen(TOKEN_KEY) + 1);
-	if(httpParams[3].key){
-		memset(httpParams[3].key, 0, strlen(TOKEN_KEY) + 1);
-		strcpy(httpParams[3].key, TOKEN_KEY);
+	httpParams[3].key = alpaca_memory_poll_malloc(p, strlen(TOKEN_KEY) + 1);
+	if(!httpParams[3].key){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
-	char* urlbuf = malloc(strlen(commonconfig.serverHeartbeatUrl) + strlen(local_ip) + 2);
-	if(urlbuf){
-		strcpy(urlbuf, commonconfig.serverHeartbeatUrl);
-		strcat(urlbuf, "|");
-		strcat(urlbuf, local_ip);
+	strcpy(httpParams[3].key, TOKEN_KEY);
+	char* urlbuf = alpaca_memory_poll_malloc(p, strlen(commonconfig.serverHeartbeatUrl) + strlen(local_ip) + 2);
+	if(!urlbuf){
+		alpaca_memory_poll_destroy(p);
+		return;
 	}
+	strcpy(urlbuf, commonconfig.serverHeartbeatUrl);
+	strcat(urlbuf, "|");
+	strcat(urlbuf, local_ip);
 	httpParams[3].value = getmd5(urlbuf);
 	strcat(httpParams[3].value, "\0");
 
 	if(PairUrlEncode(httpParams, out, paramnum) == -1){
-		free(reqUrl);
-		free(out);
+		alpaca_memory_poll_destroy(p);
 		return;
 	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
@@ -272,26 +294,22 @@ void sendFirewallHeartbeatRequest(){
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
-	free(reqUrl);
-	free(out);
+	alpaca_memory_poll_destroy(p);
 }
 
 void* pushRequestThread(){
 	while(1) {
 		int needSleep = 1;
-		pthread_mutex_lock(&blockqueuelock);
 		if(isBlockQueueEmpty() == 0){
 			needSleep = 0;
 			sendFirewallHttpRequest();
 			usleep(5000);//TODO  5ms
 		}
-		else{
-			pthread_mutex_unlock(&blockqueuelock);
-		}
 		if(needSleep){
 			sleep(1);
 		}
 	}
+	return NULL;
 }
 
 void startPushRequestThread(ngx_http_request_t *r){
@@ -315,6 +333,7 @@ void* heartbeatThread(){
 		}	
 		sleep(*(commonconfig.clientHeartbeatInterval));
 	}
+	return NULL;
 }
 
 void startHeartbeatThread(ngx_http_request_t *r){
@@ -926,77 +945,212 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 		if(responseIfNeeded(r, context, out) == CONTEXTSTATUSNEEDRESPONSE){
 			if(switchconfig.pushBlockEvent == 1){
 				int paramnum = PUSH_BLOCK_ARGS_NUM;
-				Pair* httpParams = malloc(sizeof(Pair)*paramnum);
+				alpaca_memory_pool* pool = alpaca_memory_pool_create();
+				Pair* httpParams = alpaca_memory_poll_malloc(pool, sizeof(Pair)*paramnum);
 				if(!httpParams){
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams, 0, sizeof(Pair)*paramnum);
-				httpParams[0].key = malloc(strlen("blockUrl") + 1);
+				httpParams[0].key = alpaca_memory_poll_malloc(pool, strlen("blockUrl") + 1);
 				if(!httpParams[0].key){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[0].key, 0, strlen("blockUrl") + 1);
 				strcpy(httpParams[0].key, "blockUrl");
-				httpParams[0].value = malloc(context->rawUrl_len + 1);
+				httpParams[0].value = alpaca_memory_poll_malloc(pool, context->rawUrl_len + 1);
 				if(!httpParams[0].value){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[0].value, 0, context->rawUrl_len + 1);
 				strncpy(httpParams[0].value, (char*)context->rawUrl, context->rawUrl_len);
-				httpParams[1].key = malloc(strlen("status") + 1);
+				httpParams[1].key = alpaca_memory_poll_malloc(pool,strlen("status") + 1);
 				if(!httpParams[1].key){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[1].key, 0, strlen("status") + 1);
 				strcpy(httpParams[1].key, "status");
-				char* httpstatus = getHttpStatus(context->status);
-				httpParams[1].value = malloc(strlen(httpstatus) + 1);
-				if(!httpParams[1].key){
-					freePairP(httpParams, paramnum);
+				char* httpstatus = getHttpStatus(pool, context->status);
+				if(!httpstatus){
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[1].value, 0, strlen(httpstatus) + 1);
+				httpParams[1].value = alpaca_memory_poll_malloc(pool, strlen(httpstatus) + 1);
+				if(!httpParams[1].value){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
 				strcpy(httpParams[1].value, httpstatus);
-				httpParams[2].key = malloc(strlen("blockIp") + 1);
+				httpParams[2].key = alpaca_memory_poll_malloc(pool, strlen("blockIp") + 1);
 				if(!httpParams[2].key){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[2].key, 0, strlen("blockIp") + 1);
 				strcpy(httpParams[2].key, "blockIp");
 				if(!context->clientIP){
-					httpParams[2].value = malloc(strlen("empty ip") + 1);
+					httpParams[2].value = alpaca_memory_poll_malloc(pool, strlen("empty ip") + 1);
 					if(!httpParams[2].value){
-						freePairP(httpParams, paramnum);
+						alpaca_memory_poll_destroy(pool);
 						return CONTEXTSTATUSNEEDRESPONSE;
 					}
-					memset(httpParams[2].value, 0,strlen("empty ip") + 1); 
 					strcpy(httpParams[2].value, "empty ip");
 				}
 				else{
-					httpParams[2].value = malloc(context->clientIP_len + 1);
+					httpParams[2].value = alpaca_memory_poll_malloc(pool, context->clientIP_len + 1);
 					if(!httpParams[2].value){
-						freePairP(httpParams, paramnum);
+						alpaca_memory_poll_destroy(pool);
 						return CONTEXTSTATUSNEEDRESPONSE;
 					}
-					memset(httpParams[2].value, 0, context->clientIP_len + 1); 
 					strncpy(httpParams[2].value, (char*)context->clientIP, context->clientIP_len);
 				}
-				httpParams[3].key = malloc(strlen("userAgent") + 1);
+				httpParams[3].key = alpaca_memory_poll_malloc(pool, strlen("userAgent") + 1);
 				if(!httpParams[3].key){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
-				memset(httpParams[3].key, 0, strlen("userAgent") + 1);
 				strcpy(httpParams[3].key, "userAgent");
-				httpParams[3].value = malloc(context->userAgent_len + 1);
+				httpParams[3].value = alpaca_memory_poll_malloc(pool, context->userAgent_len + 1);
 				if(!httpParams[3].value){
-					freePairP(httpParams, paramnum);
+					alpaca_memory_poll_destroy(pool);
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
+				strncpy(httpParams[3].value, (char*)context->userAgent, context->userAgent_len);
+				httpParams[4].key = alpaca_memory_poll_malloc(pool, strlen("httpMethod"));
+				if(!httpParams[4].key){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strcpy(httpParams[4].key, "httpMethod");
+				httpParams[4].value = alpaca_memory_poll_malloc(pool, context->httpMethod_len + 1);
+				if(!httpParams[4].value){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strncpy(httpParams[4].value, (char*)context->httpMethod, context->httpMethod_len);
+				httpParams[5].key = alpaca_memory_poll_malloc(pool, strlen("clientIP") + 1);
+				if(!httpParams[5].key){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strcpy(httpParams[5].key, "clientIP");
+				httpParams[5].value = alpaca_memory_poll_malloc(pool, strlen(local_ip) + 1);
+				if(!httpParams[5].value){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strcpy(httpParams[5].value, local_ip);
+				httpParams[6].key = alpaca_memory_poll_malloc(pool, strlen("vid") + 1);
+				if(!httpParams[6].key){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strcpy(httpParams[6].key, "vid");
+				if(!context->visitId){
+					httpParams[6].value = alpaca_memory_poll_malloc(pool, strlen("empty ip") + 1);
+					if(!httpParams[6].value){
+						alpaca_memory_poll_destroy(pool);
+						return CONTEXTSTATUSNEEDRESPONSE;
+					}
+					strcpy(httpParams[6].value, "empty ip");
+				}
+				else{
+					httpParams[6].value = alpaca_memory_poll_malloc(pool, context->visitId_len + 1);
+					if(!httpParams[6].value){
+						alpaca_memory_poll_destroy(pool);
+						return CONTEXTSTATUSNEEDRESPONSE;
+					}
+					strncpy(httpParams[6].value, (char*)context->visitId, context->visitId_len);
+				}
+				httpParams[7].key = alpaca_memory_poll_malloc(pool, strlen("logTime") + 1);
+				if(!httpParams[7].key){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				strcpy(httpParams[7].key, "logTime");
+				httpParams[7].value = getNowLogTime(pool);
+				httpParams_pool* p = alpaca_memory_poll_malloc(pool, sizeof(httpParams_pool));
+				if(!p){
+					alpaca_memory_poll_destroy(pool);
+					return CONTEXTSTATUSNEEDRESPONSE;
+				}
+				p->httpParams = httpParams;
+				p->pool = pool;
+				blockQueueOffer(p);
+				return CONTEXTSTATUSNEEDRESPONSE;
+
+
+
+
+				/*Pair* httpParams = malloc(sizeof(Pair)*paramnum);
+				  if(!httpParams){
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams, 0, sizeof(Pair)*paramnum);
+				  httpParams[0].key = malloc(strlen("blockUrl") + 1);
+				  if(!httpParams[0].key){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[0].key, 0, strlen("blockUrl") + 1);
+				  strcpy(httpParams[0].key, "blockUrl");
+				  httpParams[0].value = malloc(context->rawUrl_len + 1);
+				  if(!httpParams[0].value){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[0].value, 0, context->rawUrl_len + 1);
+				  strncpy(httpParams[0].value, (char*)context->rawUrl, context->rawUrl_len);
+				  httpParams[1].key = malloc(strlen("status") + 1);
+				  if(!httpParams[1].key){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[1].key, 0, strlen("status") + 1);
+				  strcpy(httpParams[1].key, "status");
+				  char* httpstatus = getHttpStatus(context->status);
+				  httpParams[1].value = malloc(strlen(httpstatus) + 1);
+				  if(!httpParams[1].key){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[1].value, 0, strlen(httpstatus) + 1);
+				  strcpy(httpParams[1].value, httpstatus);
+				  httpParams[2].key = malloc(strlen("blockIp") + 1);
+				  if(!httpParams[2].key){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[2].key, 0, strlen("blockIp") + 1);
+				  strcpy(httpParams[2].key, "blockIp");
+				  if(!context->clientIP){
+				  httpParams[2].value = malloc(strlen("empty ip") + 1);
+				  if(!httpParams[2].value){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[2].value, 0,strlen("empty ip") + 1); 
+				  strcpy(httpParams[2].value, "empty ip");
+				  }
+				  else{
+				  httpParams[2].value = malloc(context->clientIP_len + 1);
+				  if(!httpParams[2].value){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[2].value, 0, context->clientIP_len + 1); 
+				  strncpy(httpParams[2].value, (char*)context->clientIP, context->clientIP_len);
+				  }
+				  httpParams[3].key = malloc(strlen("userAgent") + 1);
+				  if(!httpParams[3].key){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
+				  memset(httpParams[3].key, 0, strlen("userAgent") + 1);
+				  strcpy(httpParams[3].key, "userAgent");
+				  httpParams[3].value = malloc(context->userAgent_len + 1);
+				  if(!httpParams[3].value){
+				  freePairP(httpParams, paramnum);
+				  return CONTEXTSTATUSNEEDRESPONSE;
+				  }
 				memset(httpParams[3].value, 0, context->userAgent_len + 1);
 				strncpy(httpParams[3].value, (char*)context->userAgent, context->userAgent_len);
 				httpParams[4].key = malloc(strlen("httpMethod"));
@@ -1063,7 +1217,7 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 				pthread_mutex_lock(&blockqueuelock);
 				blockQueueOffer(httpParams);
 				pthread_mutex_unlock(&blockqueuelock);
-				return CONTEXTSTATUSNEEDRESPONSE;
+				return CONTEXTSTATUSNEEDRESPONSE;*/
 			}
 			return CONTEXTSTATUSNEEDRESPONSE;
 		}
@@ -1082,12 +1236,11 @@ void changeIntToChar(char** buf, int num, int bit){
 		bit = bit / 10;
 	}
 }
-char* getNowLogTime(){
-	char* result = malloc(strlen("yyyy-MM-dd HH:mm:ss") + 1);
+char* getNowLogTime(alpaca_memory_pool* pool){
+	char* result = alpaca_memory_poll_malloc(pool, strlen("yyyy-MM-dd HH:mm:ss") + 1);
 	if(result == NULL){
 		return NULL;
 	}
-	memset(result, 0, strlen("yyyy-MM-dd HH:mm:ss") + 1);
 	time_t t;
 	struct tm *local;
 	time(&t);
@@ -1159,7 +1312,12 @@ int isFirewallRequest(ngx_http_request_t *r){
 			strncpy(token_compute, (char*)r->unparsed_uri.data, r->unparsed_uri.len);
 			strcat(token_compute, "|");
 			strcat(token_compute, local_ip);
-			if(strncmp(getmd5(token_compute), token, 32) == 0){
+			char* md5_token_compute = getmd5(token_compute);
+			if(!md5_token_compute){
+				return 0;
+			}
+			if(strncmp(md5_token_compute, token, 32) == 0){
+				free(md5_token_compute);
 				return 1;
 			}
 			else{
@@ -1168,7 +1326,7 @@ int isFirewallRequest(ngx_http_request_t *r){
 		}
 		else{
 			return 0;
-			}
+		}
 		return 1;		
 	}
 	return 0;	
@@ -1395,10 +1553,13 @@ void responseStatus(ngx_http_request_t *r, ngx_chain_t **out){
 		cJSON_Delete(alpacastatus);//TODO
 		return;
 	}
+	char *res = ngx_pcalloc(r->pool, strlen(resbody) + 1);
+	strcpy(res, resbody);
+	free(resbody);
 	r->headers_out.status = NGX_HTTP_OK;
-	r->headers_out.content_length_n = strlen(resbody);
-	b->pos = (u_char *) resbody;
-	b->last = b->pos + strlen(resbody);  
+	r->headers_out.content_length_n = strlen(res);
+	b->pos = (u_char *) res;
+	b->last = b->pos + strlen(res);  
 	b->memory = 1;  
 	b->last_buf = 1;  
 	(*out) = ngx_alloc_chain_link(r->pool);  
@@ -1412,11 +1573,10 @@ void responseStatus(ngx_http_request_t *r, ngx_chain_t **out){
 }
 
 void responseDenyMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **out){
-	char* resbody = getResponseDenyMessage(context);	
+	char* resbody = getResponseDenyMessage(r, context);	
 	ngx_buf_t    *b;  
 	b = ngx_calloc_buf(r->pool);  
 	if (b == NULL) {
-		free(resbody);
 		return;  
 	} 
 	if(resbody == NULL){
@@ -1430,7 +1590,6 @@ void responseDenyMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **
 	b->last_buf = 1;  
 	(*out) = ngx_alloc_chain_link(r->pool);  
 	if (*out == NULL){
-		free(resbody);
 		return;
 	}	
 	(*out)->buf = b;  
@@ -1439,11 +1598,10 @@ void responseDenyMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **
 }
 
 void responseDenyRateMessage(ngx_http_request_t *r, Context *context, ngx_chain_t **out){
-	char* resbody = getResponseDenyRateMessage(context);	
+	char* resbody = getResponseDenyRateMessage(r, context);	
 	ngx_buf_t    *b;  
 	b = ngx_calloc_buf(r->pool);  
 	if (b == NULL) {
-		free(resbody);
 		return;  
 	} 
 	if(resbody == NULL){
@@ -1457,7 +1615,6 @@ void responseDenyRateMessage(ngx_http_request_t *r, Context *context, ngx_chain_
 	b->last_buf = 1;  
 	*out = ngx_alloc_chain_link(r->pool);  
 	if (*out == NULL){
-		free(resbody);
 		return;
 	}	
 	(*out)->buf = b;  
@@ -1573,12 +1730,11 @@ cJSON* formatListPP(List* key, int key_len){
 	return obj;
 }
 
-char* getResponseDenyMessage(Context *context){
-	char* result = malloc(DENYMESSAGEMAXLENTH);
+char* getResponseDenyMessage(ngx_http_request_t *r, Context *context){
+	char* result = ngx_pcalloc(r->pool, DENYMESSAGEMAXLENTH);
 	if(result == NULL){
 		return NULL;
 	}
-	memset(result, 0, DENYMESSAGEMAXLENTH);
 	int denymessage_len = strlen(responsemessageconfig.denyMessage);
 	int i, j, k;
 	k = 0;
@@ -1629,12 +1785,11 @@ char* getResponseDenyMessage(Context *context){
 	return result;
 }
 
-char* getResponseDenyRateMessage(Context *context){
-	char* result = malloc(DENYMESSAGEMAXLENTH);
+char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context){
+	char* result = ngx_pcalloc(r->pool, DENYMESSAGEMAXLENTH);
 	if(result == NULL){
 		return NULL;
 	}
-	memset(result, 0, 4096);
 	int denymessage_len = strlen(responsemessageconfig.denyRateMessage);
 	int i, j, k;
 	k = 0;
