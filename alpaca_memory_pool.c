@@ -2,18 +2,17 @@
 #include <string.h>
 
 #include "alpaca_memory_pool.h"
-#define POOL_SIZE 1024*10
 
-alpaca_memory_pool* alpaca_memory_pool_create(){
-	alpaca_memory_pool* pool = malloc(POOL_SIZE);
+alpaca_memory_pool* alpaca_memory_pool_create(int size){
+	alpaca_memory_pool* pool = malloc(size);
 	if(!pool){
 		return NULL;
 	}
-	memset(pool, 0, POOL_SIZE);
+	memset(pool, 0, size);
 	pool->start = (char*)pool + sizeof(alpaca_memory_pool);
 	pool->last = (char*)pool + sizeof(alpaca_memory_pool);
-	pool->end = (char*)pool + POOL_SIZE;
-	pool->max = POOL_SIZE - sizeof(alpaca_memory_pool);
+	pool->end = (char*)pool + size;
+	pool->max = size - sizeof(alpaca_memory_pool);
 	return pool;
 }
 

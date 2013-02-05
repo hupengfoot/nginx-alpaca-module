@@ -42,3 +42,7 @@ int contains(char* target, List* collection, int len){
 	}
 	return 0;
 }
+
+int ignoreCaseContainAll(char* target, ListList* collection_list){
+	return 0;
+}

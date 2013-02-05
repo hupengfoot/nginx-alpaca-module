@@ -43,6 +43,7 @@
 #define ALPACA_CLIENT_VERSION "0.2.8"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
 #define EXPIRETIME 180
+#define POOL_SIZE 1024*10
 #ifdef __x86_64__
 #define U_CHAR long
 #elif __i386__
@@ -50,7 +51,6 @@
 #endif
 
 
-pthread_mutex_t blockqueuelock;
 static int heartbeatthreadstart;
 static int pushblockthreadstart;
 static char* visitId;
@@ -108,7 +108,6 @@ void initBlockRequestQueue(){
 	blockRequestQueue.head = 0;
 	blockRequestQueue.tail = 0;
 	blockRequestQueue.size = BLOCKREQUESTQUEUESIZE + 1;
-	pthread_mutex_init(&blockqueuelock, NULL);
 }
 
 int PairUrlEncode(Pair* httpParams, char* out, int len){
@@ -202,7 +201,7 @@ void sendFirewallHttpRequest(){
 }
 
 void sendFirewallHeartbeatRequest(){
-	alpaca_memory_pool* p = alpaca_memory_pool_create();
+	alpaca_memory_pool* p = alpaca_memory_pool_create(POOL_SIZE);
 	if(!p){
 		return;
 	}
@@ -947,7 +946,7 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 		if(responseIfNeeded(r, context, out) == CONTEXTSTATUSNEEDRESPONSE){
 			if(switchconfig.pushBlockEvent == 1){
 				int paramnum = PUSH_BLOCK_ARGS_NUM;
-				alpaca_memory_pool* pool = alpaca_memory_pool_create();
+				alpaca_memory_pool* pool = alpaca_memory_pool_create(POOL_SIZE);
 				Pair* httpParams = alpaca_memory_poll_malloc(pool, sizeof(Pair)*paramnum);
 				if(!httpParams){
 					alpaca_memory_poll_destroy(pool);
@@ -1409,7 +1408,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig.acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix) ){
+		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix)){
 			context->status = DENY_USERAGENT;
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddressPrefix)){
