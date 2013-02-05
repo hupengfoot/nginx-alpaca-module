@@ -130,6 +130,7 @@ int PairUrlEncode(Pair* httpParams, char* out, int len){
 			return -1;
 		}
 		strcat(out, buf);
+		free(buf);
 		p++;
 		p = p + new_length;
 		strcat(out,"=");
@@ -138,6 +139,7 @@ int PairUrlEncode(Pair* httpParams, char* out, int len){
 			return -1;
 		}
 		strcat(out,buf);
+		free(buf);
 		p = p + new_length;
 	}	
 	return 1;
@@ -1365,6 +1367,16 @@ int getCookie(u_char** in, ngx_http_request_t *r){
 			return 0;
 		}
 		return (end - (*in));
+	}
+	for(i = 0; i < (int)r->headers_in.headers.part.nelts; i ++){
+		if(strlen(visitId) != (unsigned int)(((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->key.len)){
+			continue;
+		}
+		if(strncmp(visitId, (char*)((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->key.data, strlen(visitId)) != 0){
+			continue;
+		}
+		*in = ((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->value.data;
+		return ((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->value.len;
 	}
 	*in = NULL;
 	return 0;
