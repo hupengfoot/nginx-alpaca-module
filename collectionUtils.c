@@ -1,6 +1,12 @@
 #include <string.h>
 #include <ctype.h>
 #include "collectionUtils.h"
+
+
+
+const char* strcasestr(const char* str, const char* subStr);
+
+
 int startWithIgnoreCaseContains(char* target, List* collection){
 	if(collection != NULL && target != NULL){
 		int i;
@@ -44,5 +50,40 @@ int contains(char* target, List* collection, int len){
 }
 
 int ignoreCaseContainAll(char* target, ListList* collection_list){
+	int i, j;
+	int containall = 0;
+	if(collection_list && target){
+		for(i = 0; i < collection_list->len; i++){
+			containall = 1;
+			for(j = 0; j < collection_list->list[i].len; j++){
+				if(!strcasestr(target, collection_list->list[i].list[j]+1)){
+					containall = 0;
+					break;		
+				}
+			}
+			if(containall == 1){
+				return 1;
+			}
+		}
+		return 0;
+	}
 	return 0;
+}
+
+const char* strcasestr(const char* str, const char* subStr)
+{
+	int len = strlen(subStr) - 1;
+	if(len == 0)
+	{
+		return NULL;          
+	}
+	while(*str)
+	{
+		if(strncasecmp(str, subStr, len) == 0)    
+		{
+			return str;
+		}
+		str++;
+	}
+	return NULL;
 }

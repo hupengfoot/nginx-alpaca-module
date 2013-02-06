@@ -167,7 +167,7 @@ void sendFirewallHttpRequest(){
 	strcpy(urlbuf, commonconfig.serverBlockEventUrl);
 	strcat(urlbuf, "|");
 	strcat(urlbuf, local_ip);
-	httpParams->httpParams[8].value = getmd5(urlbuf);
+	httpParams->httpParams[8].value = getmd5frompool(httpParams->pool, urlbuf);
 	if(!httpParams->httpParams[8].value){
 		return;
 	}
@@ -278,7 +278,7 @@ void sendFirewallHeartbeatRequest(){
 	strcpy(urlbuf, commonconfig.serverHeartbeatUrl);
 	strcat(urlbuf, "|");
 	strcat(urlbuf, local_ip);
-	httpParams[3].value = getmd5(urlbuf);
+	httpParams[3].value = getmd5frompool(p, urlbuf);
 	strcat(httpParams[3].value, "\0");
 
 	if(PairUrlEncode(httpParams, out, paramnum) == -1){
@@ -1313,12 +1313,11 @@ int isFirewallRequest(ngx_http_request_t *r){
 			strncpy(token_compute, (char*)r->unparsed_uri.data, r->unparsed_uri.len);
 			strcat(token_compute, "|");
 			strcat(token_compute, local_ip);
-			char* md5_token_compute = getmd5(token_compute);
+			char* md5_token_compute = getmd5fromngxpool(r, token_compute);
 			if(!md5_token_compute){
 				return 0;
 			}
 			if(strncmp(md5_token_compute, token, 32) == 0){
-				free(md5_token_compute);
 				return 1;
 			}
 			else{
@@ -1408,7 +1407,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig.acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix)){
+		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig.denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig.denyUserAgentContainAnd)){
 			context->status = DENY_USERAGENT;
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig.denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig.denyIPAddressPrefix)){
