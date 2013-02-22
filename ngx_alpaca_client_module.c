@@ -38,6 +38,18 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, visitId),
 		NULL },
+	{ ngx_string("alpaca_log"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, log),
+		NULL },
+	{ ngx_string("alpaca_log_level"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, level),
+		NULL },
 
 	ngx_null_command
 };
@@ -135,6 +147,10 @@ ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
 	conf->visitId.len = 0;
 	conf->visitId.data = NULL;
 	conf->enable = NGX_CONF_UNSET;
+	conf->log.len = 0;
+	conf->log.data = NULL;
+	conf->level.len = 0;
+	conf->level.data = NULL;
 	return conf;
 }
 /*	static char *

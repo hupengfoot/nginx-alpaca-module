@@ -12,6 +12,8 @@ typedef struct{
 	ngx_str_t ecdata;
 	ngx_str_t visitId;
 	ngx_flag_t enable;
+	ngx_str_t log;
+	ngx_str_t level;
 } ngx_alpaca_client_main_conf_t;
 
 
