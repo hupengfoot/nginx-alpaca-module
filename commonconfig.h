@@ -6,7 +6,7 @@ typedef struct CommonConfig{
 	char* serverRoot;
 	char* serverBlockEventUrl;
 	char* serverHeartbeatUrl;
-	int* clientHeartbeatInterval;
+	int clientHeartbeatInterval;
 }CommonConfig;
 
 CommonConfig commonconfig;

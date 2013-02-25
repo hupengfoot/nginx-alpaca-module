@@ -56,10 +56,10 @@ static int heartbeatthreadstart;
 static int pushblockthreadstart;
 static char* visitId;
 static char* alpaca_log_file;
-static alpaca_log_t alpaca_log;
 static zhandle_t *zh;
 static char* local_ip;
 static time_t expiretime;
+static long push_event_num = 0;
 static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyIPVidRate", "alpaca.policy.denyNoVisitorIdURL.new", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
@@ -68,8 +68,7 @@ void getLocalIP();
 void setDefault();
 char* getCharPInstance(char* buf);
 int setCharP(char* buf, char** key);
-int* getIntPInstanceDigit(char* buf);
-int setIntPDigit(char* buf, int** key);
+int setIntDigit(char* buf, int* key);
 int getIntInstance(char* buf);
 int setInt(char* buf, int* key);
 List* getListPInstance(char* buf);
@@ -185,6 +184,7 @@ void sendFirewallHttpRequest(){
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
+	push_event_num++;
 	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
 
 	if(time(NULL) > expiretime){
@@ -196,6 +196,14 @@ void sendFirewallHttpRequest(){
 			alpaca_memory_poll_destroy(freelist_head->value->pool);		
 		}
 		expiretime = time(NULL) + EXPIRETIME;
+		char push_info[1024];
+		char num[129];
+		memset(push_info, 0, 1024);
+		strcpy(push_info, "have pushed ");
+		sprintf(num, "%ld", push_event_num);
+		strcat(push_info, num);
+		strcat(push_info, " event");
+		alpaca_log_wirte(ALPACA_INFO, push_info);
 	}
 }
 
@@ -304,102 +312,15 @@ void sendFirewallHeartbeatRequest(){
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
 	strcpy(reqUrl, commonconfig.serverRoot);
 	strcat(reqUrl, commonconfig.serverHeartbeatUrl);
-	/*alpaca_memory_pool* p = alpaca_memory_pool_create(POOL_SIZE);
-	  if(!p){
-	  return;
-	  }
-	  CURL *curl;
-	  char *reqUrl = alpaca_memory_poll_malloc(p, strlen(commonconfig.serverRoot) + strlen(commonconfig.serverHeartbeatUrl) + 1);
-	  if(!reqUrl){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  char *out = alpaca_memory_poll_malloc(p, DEFAULT_HEARTBEAT_MAX_LENTH);
-	  if(!out){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  int paramnum = 4;
-	  Pair* httpParams = alpaca_memory_poll_malloc(p, sizeof(Pair)*paramnum);
-	  httpParams[0].key = alpaca_memory_poll_malloc(p, strlen("clientIP") + 1);
-	  if(!httpParams[0].key){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[0].key, "clientIP");
-	  httpParams[0].value = alpaca_memory_poll_malloc(p, strlen(local_ip) + 1);
-	  if(!httpParams[0].value){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[0].value, local_ip);
-	  httpParams[1].key = alpaca_memory_poll_malloc(p, strlen("version") + 1);
-	  if(!httpParams[1].key){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[1].key, "version");
-	  httpParams[1].value = alpaca_memory_poll_malloc(p, strlen(ALPACA_CLIENT_VERSION) + 1);
-	  if(!httpParams[1].value){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[1].value, ALPACA_CLIENT_VERSION);
-	  httpParams[2].key = alpaca_memory_poll_malloc(p, strlen("enable") + 1);
-	  if(!httpParams[2].key){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[2].key, "enable");
-	  if(switchconfig.enable){
-	  httpParams[2].value = alpaca_memory_poll_malloc(p, strlen("true") + 1);
-	  if(!httpParams[2].value){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[2].value, "true");
-	  }
-	  else{
-	  httpParams[2].value = alpaca_memory_poll_malloc(p, strlen("false") + 1);
-	  if(!httpParams[2].value){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[2].value, "false");
-	  }
-	  httpParams[3].key = alpaca_memory_poll_malloc(p, strlen(TOKEN_KEY) + 1);
-	  if(!httpParams[3].key){
-	  alpaca_memory_poll_destroy(p);
-	  return;
-	  }
-	  strcpy(httpParams[3].key, TOKEN_KEY);
-	  char* urlbuf = alpaca_memory_poll_malloc(p, strlen(commonconfig.serverHeartbeatUrl) + strlen(local_ip) + 2);
-	  if(!urlbuf){
-	alpaca_memory_poll_destroy(p);
-	return;
-}
-strcpy(urlbuf, commonconfig.serverHeartbeatUrl);
-strcat(urlbuf, "|");
-strcat(urlbuf, local_ip);
-httpParams[3].value = getmd5frompool(p, urlbuf);
-strcat(httpParams[3].value, "\0");
-
-if(PairUrlEncode(httpParams, out, paramnum) == -1){
-	alpaca_memory_poll_destroy(p);
-	return;
-}
-//strcpy(out, "hupeng+++++++++++++++++++++++++");
-strcpy(reqUrl, commonconfig.serverRoot);
-strcat(reqUrl, commonconfig.serverHeartbeatUrl);*/
-curl = curl_easy_init();
-curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
-//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-curl_easy_setopt(curl, CURLOPT_POST, 1);
-curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
-curl_easy_perform(curl);
-curl_easy_cleanup(curl);
-httpParams_pool_free(p);
+	curl = curl_easy_init();
+	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
+	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
+	curl_easy_perform(curl);
+	curl_easy_cleanup(curl);
+	httpParams_pool_free(p);
 }
 
 void* pushRequestThread(){
@@ -408,7 +329,7 @@ void* pushRequestThread(){
 		if(isBlockQueueEmpty() == 0){
 			needSleep = 0;
 			sendFirewallHttpRequest();
-			usleep(5000);//TODO  5ms
+			usleep(5000);
 		}
 		if(needSleep){
 			sleep(1);
@@ -423,9 +344,10 @@ void startPushRequestThread(ngx_http_request_t *r){
 		pthread_t tid;
 		tid = pthread_create(&tid, NULL, pushRequestThread, NULL);
 		if(tid){
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-					"start push request thread, error num is \"%d\" ",
-					tid);
+			alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
+			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+			  "start push request thread, error num is \"%d\" ",
+			  tid);*/
 		}
 	}
 }
@@ -436,7 +358,7 @@ void* heartbeatThread(){
 		if(switchconfig.clientHeartbeatEnable){
 			sendFirewallHeartbeatRequest();
 		}	
-		sleep(*(commonconfig.clientHeartbeatInterval));
+		sleep(commonconfig.clientHeartbeatInterval);
 	}
 	return NULL;
 }
@@ -447,40 +369,24 @@ void startHeartbeatThread(ngx_http_request_t *r){
 		pthread_t tid;
 		tid = pthread_create(&tid, NULL, heartbeatThread, NULL);
 		if(tid){
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-					"start heart beat thread, error num is \"%d\" ",
-					tid);
+			alpaca_log_wirte(ALPACA_ERROR, "start heart beat thread fail");
+			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+			  "start heart beat thread, error num is \"%d\" ",
+			  tid);*/
 		}
 	}
 }
 
 void getVisitId(ngx_alpaca_client_main_conf_t *aclc){
 	visitId = malloc(aclc->visitId.len + 1);
-		alpaca_log_append(alpaca_log.fd, "malloc fail, when get visitId");	
 	if(visitId == NULL){
+		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get visitid");
 		return;
 	}
 	memset(visitId, 0, aclc->visitId.len + 1);
 	strcpy(visitId, (char*)aclc->visitId.data);
 }
 
-int get_alpaca_log_level(char* level){
-	if(strcasecmp(level, "DEBUG") == 0){
-		return 0;
-	}
-	else if(strcasecmp(level, "INFO") == 0){
-		return 1;
-	}
-	else if(strcasecmp(level, "WARN") == 0){
-		return 2;
-	}
-	else if(strcasecmp(level, "ERROR") == 0){
-		return 3;
-	}
-	else{
-		return 2;
-	}
-}
 
 void openAlpacaLog(ngx_alpaca_client_main_conf_t *aclc){
 	if(aclc->log.len != 0){
@@ -491,13 +397,7 @@ void openAlpacaLog(ngx_alpaca_client_main_conf_t *aclc){
 		}
 		memset(alpaca_log_file, 0, aclc->log.len + 1);
 		strcpy(alpaca_log_file, (char*)aclc->log.data);
-		alpaca_log.fd = alpaca_log_open(alpaca_log_file);
-		if(!aclc->level.data){
-			alpaca_log.log_level = DEFAULT_ALPACA_LOG_LEVEL;	
-		}
-		else{
-			alpaca_log.log_level = get_alpaca_log_level((char*)aclc->level.data);
-		}
+		alpaca_log_open(alpaca_log_file, (char*)aclc->level.data);
 		return;
 	}
 	alpaca_log_file = NULL;
@@ -520,6 +420,7 @@ void getLocalIP(){
 	char *ip;
 	ip = (char*)malloc(32);
 	if(!ip){
+		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get local ip");
 		return;
 	}
 	fd = socket(PF_INET, SOCK_DGRAM, 0);
@@ -535,9 +436,11 @@ void getLocalIP(){
 void initConfigWatch(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r){
 	zh = zookeeper_init((char *)aclc->zookeeper_addr.data, watcher, 10000, 0, 0, 0);
 	if(!zh){
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-				"zookeeper init fail! the address is \"%V\" ",
-				aclc->zookeeper_addr);
+		alpaca_log_wirte(ALPACA_ERROR, "init zookeeper fail");
+		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+		  "zookeeper init fail! the address is \"%V\" ",
+		  aclc->zookeeper_addr);
+		  */
 		return;
 	}
 	//struct Stat stat;
@@ -575,6 +478,20 @@ void initConfigWatch(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r)
 	aclc->zh = 1;
 }
 
+void set_default_string(char* dst, char* src){
+	if(!src){
+		return;
+	}
+	dst = malloc(strlen(src));
+	if(!dst){
+		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when set default config ");
+		return;
+	}
+	else{
+		strcpy(dst, src);
+	}
+}
+
 void setDefault(){
 	switchconfig.enable = 0;
 	switchconfig.pushBlockEvent = 0;
@@ -582,7 +499,18 @@ void setDefault(){
 	switchconfig.blockByVid = 0;
 	switchconfig.clientHeartbeatEnable = 0;
 	switchconfig.blockByVidOnly = 0;
-	responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
+	set_default_string(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
+	set_default_string(responsemessageconfig.denyRateMessage, DEFAULTDENYRATE);
+	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
+	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
+	set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
+	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
+	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
+	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
+	/*responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 	if(responsemessageconfig.denyMessage){
 		strcpy(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
 	}
@@ -621,7 +549,7 @@ void setDefault(){
 	commonconfig.serverHeartbeatUrl = malloc(sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
 	if(commonconfig.serverHeartbeatUrl){
 		strcpy(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
-	}
+	}*/
 }
 
 char* getCharPInstance(char* buf){
@@ -653,35 +581,17 @@ int setCharP(char* buf, char** key){
 	}
 }
 
-int* getIntPInstanceDigit(char* buf){
-	int num = atoi(buf);
-	if(num == 0){
-		return NULL;
-	}
-	int* result = (int*)malloc(sizeof(int));
-	if(result == NULL){
-		return NULL;
-	}
-	*result = num;
-	return result;
-}
 
-int setIntPDigit(char* buf, int** key){
-	int* tmp = getIntPInstanceDigit(buf);
-	if(!tmp){
+int setIntDigit(char* buf, int* key){
+	if(!buf){
 		return -1;
 	}
-	else{
-		if(*key){
-			int* before = *key;
-			*key = tmp;
-			free(before);
-		}
-		else{
-			*key = tmp;
-		}
+	int tmp = atoi(buf);
+	if(tmp > 0){
+		*key = tmp;
 		return 0;
 	}
+	return -1;
 }
 
 int getIntInstance(char* buf){
@@ -1011,7 +921,7 @@ int parsebuf(char *buf, char *key){
 		return setCharP(buf,&commonconfig.clientValidateCodeUrl);
 	}
 	else if(strcmp(key, "alpaca.client.heartbeat.interval") == 0){
-		return setIntPDigit(buf,&commonconfig.clientHeartbeatInterval);
+		return setIntDigit(buf,&commonconfig.clientHeartbeatInterval);
 	}
 	else if(strcmp(key, "alpaca.url.serverRootUrl") == 0){
 		return setCharP(buf,&commonconfig.serverRoot);
@@ -1213,6 +1123,7 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 			if(switchconfig.pushBlockEvent == 1){
 				httpParams_pool* p = multi_malloc_blockEvent(context);
 				if(!p){
+					alpaca_log_wirte(ALPACA_WARN, "malloc fail, when create memory pool for block event info");
 					return CONTEXTSTATUSNEEDRESPONSE;
 				}
 				strcpy(p->httpParams[0].key, "blockUrl");
@@ -1247,8 +1158,6 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 				strcpy(p->httpParams[7].key, "logTime");
 				getNowLogTime(p->httpParams[7].value);
 				blockQueueOffer(p);
-				// log when malloc fail
-				// log to separate log file
 			}
 			return CONTEXTSTATUSNEEDRESPONSE;
 		}

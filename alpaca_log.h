@@ -2,7 +2,7 @@
 #define ALPACA_INFO 1
 #define ALPACA_WARN 2
 #define ALPACA_ERROR 3
-#define DEFAULT_ALPACA_LOG_LEVEL 2
+#define DEFAULT_ALPACA_LOG_LEVEL 1
 
 
 typedef struct{
@@ -10,5 +10,5 @@ typedef struct{
 	int fd;	
 }alpaca_log_t;
 
-int alpaca_log_open(const char * name);
-int alpaca_log_append(int fd, char* data);
+int alpaca_log_open(const char * name, char* level);
+int alpaca_log_wirte(int level, char*data);
