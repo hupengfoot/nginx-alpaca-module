@@ -112,7 +112,7 @@ void initBlockRequestQueue(){
 	blockRequestQueue.size = BLOCKREQUESTQUEUESIZE + 1;
 }
 
-int PairUrlEncode(Pair* httpParams, char* out, int len){
+int pairUrlEncode(Pair* httpParams, char* out, int len){
 	int isFirst = 1;
 	int p = 0;
 	int new_length = 0;
@@ -170,7 +170,7 @@ void sendFirewallHttpRequest(){
 	strcat(urlbuf, local_ip);
 	getmd5frompool(httpParams->httpParams[8].value, urlbuf);
 	strcat(httpParams->httpParams[8].value, "\0");
-	if(PairUrlEncode(httpParams->httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
+	if(pairUrlEncode(httpParams->httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
 		return;
 	}
 	//strcpy(out, "hupeng+++++++++++++++++++++++++");
@@ -305,7 +305,7 @@ void sendFirewallHeartbeatRequest(){
 	getmd5frompool(p->httpParams[3].value, urlbuf);
 	strcat(p->httpParams[3].value, "\0");
 
-	if(PairUrlEncode(p->httpParams, out, paramnum) == -1){
+	if(pairUrlEncode(p->httpParams, out, paramnum) == -1){
 		httpParams_pool_free(p);
 		return;
 	}
@@ -1113,6 +1113,7 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 	if(switchconfig.mount == 1){
 		context = getRequestContext(r);
 		if(context == NULL){
+			alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get context of a request");
 			return CONTEXTSTATUSNEEDNOTRESPONSE;
 		}
 		procrequest(r, context);
