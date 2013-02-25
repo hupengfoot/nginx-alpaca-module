@@ -478,17 +478,17 @@ void initConfigWatch(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r)
 	aclc->zh = 1;
 }
 
-void set_default_string(char* dst, char* src){
+void set_default_string(char** dst, char* src){
 	if(!src){
 		return;
 	}
-	dst = malloc(strlen(src));
-	if(!dst){
+	*dst = malloc(strlen(src));
+	if(!*dst){
 		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when set default config ");
 		return;
 	}
 	else{
-		strcpy(dst, src);
+		strcpy(*dst, src);
 	}
 }
 
@@ -499,7 +499,7 @@ void setDefault(){
 	switchconfig.blockByVid = 0;
 	switchconfig.clientHeartbeatEnable = 0;
 	switchconfig.blockByVidOnly = 0;
-	set_default_string(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
+	/*set_default_string(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
 	set_default_string(responsemessageconfig.denyRateMessage, DEFAULTDENYRATE);
 	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
 	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
@@ -509,8 +509,8 @@ void setDefault(){
 	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
 	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
 	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
-	/*responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
+	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);*/
+	responsemessageconfig.denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 	if(responsemessageconfig.denyMessage){
 		strcpy(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
 	}
@@ -526,10 +526,7 @@ void setDefault(){
 	if(commonconfig.clientEnableUrl){
 		strcpy(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
 	}
-	commonconfig.clientHeartbeatInterval = malloc(sizeof(int));
-	if(commonconfig.clientHeartbeatInterval){
-		*commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-	}
+	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
 	commonconfig.clientStatusUrl = malloc(sizeof(DEFAULT_CLIENT_URL_STATUS));
 	if(commonconfig.clientStatusUrl){
 		strcpy(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
@@ -549,7 +546,7 @@ void setDefault(){
 	commonconfig.serverHeartbeatUrl = malloc(sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
 	if(commonconfig.serverHeartbeatUrl){
 		strcpy(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
-	}*/
+	}
 }
 
 char* getCharPInstance(char* buf){
