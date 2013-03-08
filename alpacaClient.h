@@ -12,6 +12,7 @@ typedef struct{
 	ngx_flag_t enable;
 	ngx_str_t log;
 	ngx_str_t level;
+	ngx_flag_t allow_ua_empty;
 } ngx_alpaca_client_main_conf_t;
 
 

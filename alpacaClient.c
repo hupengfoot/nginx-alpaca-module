@@ -39,6 +39,7 @@
 
 extern char* local_ip;
 extern char* visitId;
+extern int allow_ua_empty;
 static int pushblockthreadstart;
 static time_t expiretime;
 static long push_event_num = 0;
@@ -544,7 +545,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if(context->userAgent == NULL || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){
+		else if((context->userAgent == NULL && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){
 			context->status = DENY_USERAGENT;
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){

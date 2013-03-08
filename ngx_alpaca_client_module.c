@@ -22,6 +22,7 @@ extern ngx_slab_pool_t* shpool;
 static int inited;
 char* local_ip;
 char* visitId;
+int allow_ua_empty = 0;
 static u_char* zookeeper_addr;
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
@@ -35,7 +36,7 @@ void getVisitId(ngx_alpaca_client_main_conf_t *aclc);
 static ngx_command_t  ngx_alpaca_client_commands[] = {
 
 	{ ngx_string("alpaca"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, enable),
@@ -63,6 +64,12 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, level),
+		NULL },
+	{ ngx_string("alpaca_allow_ua_empty"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, allow_ua_empty),
 		NULL },
 
 	ngx_null_command
@@ -155,6 +162,7 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	zookeeper_addr = conf->zookeeper_addr.data;
 	local_ip = getLocalIP();
     	getVisitId(conf);
+	allow_ua_empty = conf->allow_ua_empty;
 	
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
@@ -222,6 +230,7 @@ ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
 	conf->log.data = NULL;
 	conf->level.len = 0;
 	conf->level.data = NULL;
+	conf->allow_ua_empty = NGX_CONF_UNSET;
 	return conf;
 }
 
