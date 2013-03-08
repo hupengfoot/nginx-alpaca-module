@@ -1,4 +1,9 @@
 
+#ifndef _POLICYCONFIG_H_
+#include "policyconfig.h"
+#define _POLICYCONFIG_H_
+#endif
+
 #include "alpaca_memory_pool.h"
 
 #define BLOCKREQUESTQUEUESIZE 2000
@@ -29,4 +34,5 @@ int isBlockQueueEmpty();
 int isBlockQueueFull();
 int blockQueueOffer(httpParams_pool* e);
 httpParams_pool* blockQueuePoll();
+void httpParams_pool_free(httpParams_pool* p);
 //void freePairP(Pair* pair, int len);

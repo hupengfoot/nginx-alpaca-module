@@ -9,4 +9,4 @@ typedef struct CommonConfig{
 	int clientHeartbeatInterval;
 }CommonConfig;
 
-CommonConfig commonconfig;
+CommonConfig* commonconfig;

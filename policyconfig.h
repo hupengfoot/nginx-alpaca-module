@@ -29,20 +29,20 @@ typedef struct{
 }ListList;
 
 typedef struct {
-	List* acceptIPAddressPrefix;
-	List* acceptHttpMethod;
-	List* denyUserAgent;
-	List* denyUserAgentPrefix;
-	List* denyIPAddress;
-	List* denyIPAddressPrefix;
-	List* denyVistorID;
-	ListList* denyUserAgentContainAnd;
-	TripleList* denyIPVidRate;
-	PairList* denyIPVidRateStr;
-	PairList* denyVistorIDRate;
-	PairList* denyNOVisitorIDURL;
-	PairList* denyIPAddressRate;
+	 List* acceptIPAddressPrefix;
+	 List* acceptHttpMethod;
+	 List* denyUserAgent;
+	 List* denyUserAgentPrefix;
+	 List* denyIPAddress;
+	 List* denyIPAddressPrefix;
+	 List* denyVistorID;
+	 ListList* denyUserAgentContainAnd;
+	 TripleList* denyIPVidRate;
+	 PairList* denyIPVidRateStr;
+	 PairList* denyVistorIDRate;
+	 PairList* denyNOVisitorIDURL;
+	 PairList* denyIPAddressRate;
 }PolicyConfig;
 
 
-PolicyConfig policyconfig;
+PolicyConfig* policyconfig;

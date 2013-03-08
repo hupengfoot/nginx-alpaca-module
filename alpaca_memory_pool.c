@@ -16,7 +16,7 @@ alpaca_memory_pool* alpaca_memory_pool_create(int size){
 	return pool;
 }
 
-void* alpaca_memory_poll_malloc(alpaca_memory_pool* pool, int size){
+void* alpaca_memory_pool_malloc(alpaca_memory_pool* pool, int size){//TODO rename
 	void* result;
 	if(size > (pool->end - pool->last)){
 		return NULL;
@@ -28,7 +28,8 @@ void* alpaca_memory_poll_malloc(alpaca_memory_pool* pool, int size){
 	}
 }
 
-void alpaca_memory_poll_destroy(alpaca_memory_pool* pool){
+void alpaca_memory_pool_destroy(alpaca_memory_pool* pool){ //TODO
 	free(pool);
 	return;
 }
+

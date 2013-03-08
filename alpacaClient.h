@@ -7,9 +7,7 @@
 #define CONTEXTSTATUSNEEDRESPONSE 0
 
 typedef struct{
-	ngx_flag_t zh;
 	ngx_str_t zookeeper_addr;
-	ngx_str_t ecdata;
 	ngx_str_t visitId;
 	ngx_flag_t enable;
 	ngx_str_t log;
@@ -47,7 +45,6 @@ typedef struct{
 }Context;
 
 void init(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r);
-void initConfigWatch(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r);
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out);
 
 

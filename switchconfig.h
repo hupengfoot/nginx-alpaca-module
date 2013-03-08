@@ -9,5 +9,5 @@ typedef struct SwitchConfig{
 	  int blockByVidOnly;
 }SwitchConfig;
 
-SwitchConfig switchconfig;
+SwitchConfig* switchconfig;
 

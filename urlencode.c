@@ -1,5 +1,8 @@
 #include <string.h>
 #include <malloc.h>
+
+#include "urlencode.h"
+
 char *url_encode(char const *s, int len, int *new_length)//TODO,could use?
 {
 #define safe_emalloc(nmemb, size, offset)malloc((nmemb) * (size) + (offset))
@@ -48,3 +51,36 @@ char *url_encode(char const *s, int len, int *new_length)//TODO,could use?
 	return (char *) start;
 }
 
+int pairUrlEncode(Pair* httpParams, char* out, int len){
+	int isFirst = 1;
+	int p = 0;
+	int new_length = 0;
+	char* buf;
+	int i;
+	for(i = 0; i < len; i++){
+		if(isFirst == 1){
+			isFirst = 0;
+		}
+		else{
+			out[p] = '&';
+			p++;
+		}
+		buf = url_encode(httpParams[i].key, strlen(httpParams[i].key), &new_length);
+		if(!buf){
+			return -1;
+		}
+		strcat(out, buf);
+		free(buf);
+		p++;
+		p = p + new_length;
+		strcat(out,"=");
+		buf = url_encode(httpParams[i].value, strlen(httpParams[i].value), &new_length);	
+		if(!buf){
+			return -1;
+		}
+		strcat(out,buf);
+		free(buf);
+		p = p + new_length;
+	}	
+	return 1;
+}

@@ -3,4 +3,4 @@ typedef struct ResponseMessageConfig{
 	char* denyRateMessage;
 }ResponseMessageConfig;
 
-ResponseMessageConfig responsemessageconfig;
+ResponseMessageConfig* responsemessageconfig;
