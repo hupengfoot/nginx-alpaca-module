@@ -839,7 +839,7 @@ char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context){
 			j = i + 2;
 			int num = 0;
 			while(j < denymessage_len && responsemessageconfig->denyRateMessage[j] != '}'){
-				num = num * 10 + atoi(&responsemessageconfig->denyMessage[j]);
+				num = num * 10 + atoi(&responsemessageconfig->denyRateMessage[j]);
 				j++;
 			}
 			if(num == 0){
