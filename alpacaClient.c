@@ -445,6 +445,9 @@ int isFirewallRequest(ngx_http_request_t *r){
 	if(r != NULL && strncasecmp((char*)r->method_name.data, "POST", r->method_name.len) == 0){
 		if(r->header_name_start){
 			char* token = strstr((char*)r->header_name_start, TOKEN_KEY);
+			if(!token){
+				return 0;
+			}
 			token = token + strlen(TOKEN_KEY) + 1;
 			char* token_compute = ngx_pcalloc(r->pool, r->connection->addr_text.len + r->unparsed_uri.len + 2);
 			if(!token_compute){
