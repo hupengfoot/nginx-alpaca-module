@@ -48,6 +48,27 @@ ngx_slab_pool_t* shpool;
 static zhandle_t *zh;
 static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyIPVidRate", "alpaca.policy.denyNoVisitorIdURL.new", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
+void get_zk_value(char* keyname, char* buffer, int buflen, int i){
+		int rc;
+		rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);//TODO refactor
+		if(rc != 0){
+			alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
+			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+			  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
+			  aclc->zookeeper_addr);//may be should use ngx_str_t
+			//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
+		}else{
+			rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+			if(rc != 0){
+				alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
+				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+				  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
+				  aclc->zookeeper_addr);//may be should use ngx_str_t
+				//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
+			}
+		}
+
+}
 void initConfigWatch(u_char* zookeeper_addr){
 	zh = zookeeper_init((char*)zookeeper_addr, watcher, 10000, 0, 0, 0);
 	if(!zh){
@@ -59,7 +80,6 @@ void initConfigWatch(u_char* zookeeper_addr){
 		return;
 	}
 	//struct Stat stat;
-	int rc;
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
 	setDefault();
@@ -69,23 +89,7 @@ void initConfigWatch(u_char* zookeeper_addr){
 		memset(buffer, 0, buflen);
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
-		rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);//TODO refactor
-		if(rc != 0){
-			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-			  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
-			  aclc->zookeeper_addr);//may be should use ngx_str_t
-			//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-		}else{
-			if(buflen < ZOOKEEPERBUFSIZE){
-				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-			}
-			if(rc != 0){
-				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-				  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
-				  aclc->zookeeper_addr);//may be should use ngx_str_t
-				//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-			}
-		}
+		get_zk_value(keyname, buffer, buflen, i);
 	}
 }
 
@@ -634,8 +638,7 @@ int parsebuf(char *buf, char *key){
 
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {
-	struct Stat stat;
-	int rc;
+	//struct Stat stat;
 	int i;
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	char buffer[ZOOKEEPERBUFSIZE];
@@ -645,31 +648,10 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		if(strcmp(path,keyname) == 0){
-			rc = zoo_get(zh, keyname, 1, buffer, &buflen, &stat);
-			if(!rc){
-				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, buflen
-				if(rc){
-					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
-					/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-						"get key \"%V\" from zookeeper but parse fail! ",
-						zookeeper_key[i]);//may be should use ngx_str_t
-						*/
-				}
-			}else{
-				alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
-				//TODO log
-				/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-					"get key \"%V\" from zookeeper fail! ",
-					zookeeper_key[i]);//may be should use ngx_str_t*/
-			}
+			get_zk_value(keyname, buffer, buflen, i);
 			break;
 		}
 	}
-	/*struct Stat stat;
-	  char buffer[512];
-	  int buflen= sizeof(buffer);
-	  int rc = zoo_get(zh, "/hupeng", 1, buffer, &buflen, &stat);
-	  printf("get data is %s\n",&buffer);*/
 }
 
 cJSON* dumpStatus(){
