@@ -1,12 +1,12 @@
 #include <stdbool.h>
 typedef struct SwitchConfig{
-	  int running;
-	  int enable;
-	  int pushBlockEvent;
-	  int mount;
-	  int clientHeartbeatEnable;
-	  int blockByVid;
-	  int blockByVidOnly;
+	  int volatile  running;
+	  int volatile  enable;
+	  int volatile  pushBlockEvent;
+	  int volatile  mount;
+	  int volatile  clientHeartbeatEnable;
+	  int volatile  blockByVid;
+	  int volatile  blockByVidOnly;
 }SwitchConfig;
 
 SwitchConfig* switchconfig;

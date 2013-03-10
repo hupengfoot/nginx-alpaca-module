@@ -28,18 +28,18 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 int parsebuf(char *buf, char *key);
 void setDefault();
 char* getCharPInstance(char* buf);
-int setCharP(char* buf, char** key);
-int setIntDigit(char* buf, int* key);
+int setCharP(char* buf, char* volatile* key);
+int setIntDigit(char* buf, int volatile* key);
 int getIntInstance(char* buf);
-int setInt(char* buf, int* key);
+int setInt(char* buf, int volatile* key);
 List* getListPInstance(char* buf);
-int setListP(char* buf, List** key);
+int setListP(char* buf, List* volatile* key);
 PairList* getPairListPInstance(char* buf);
-int setPairListP(char* buf, PairList** key);
+int setPairListP(char* buf, PairList* volatile* key);
 TripleList* getTripleListPInstance(char* buf);
-int setTripleListP(char* buf, TripleList** key);
+int setTripleListP(char* buf, TripleList* volatile* key);
 ListList* getListListPInstance(char *buf);
-int setListListP(char* buf, ListList** key);
+int setListListP(char* buf, ListList* volatile* key);
 cJSON* formatCharPP(char** key, int key_len);
 cJSON* formatPairPP(Pair* key, int key_len);
 cJSON* formatListPP(List* key, int key_len);
@@ -156,7 +156,7 @@ char* getCharPInstance(char* buf){
 	return result;
 }
 
-int setCharP(char* buf, char** key){//TODO P to Ptr
+int setCharP(char* buf, char* volatile* key){//TODO P to Ptr
 	char *tmp = getCharPInstance(buf);
 	if(!tmp){
 		return -1;
@@ -175,7 +175,7 @@ int setCharP(char* buf, char** key){//TODO P to Ptr
 }
 
 
-int setIntDigit(char* buf, int* key){
+int setIntDigit(char* buf, int volatile* key){
 	if(!buf){
 		return -1;
 	}
@@ -196,7 +196,7 @@ int getIntInstance(char* buf){
 	}
 }
 
-int setInt(char* buf, int* key){
+int setInt(char* buf, int volatile* key){
 	*key = getIntInstance(buf);
 	return 0;
 }
@@ -252,7 +252,7 @@ List* getListPInstance(char* buf){
 
 }
 
-int setListP(char* buf, List** key){
+int setListP(char* buf, List* volatile *key){
 	List* tmp = getListPInstance(buf);
 	if(!tmp){
 		return -1;
@@ -340,7 +340,7 @@ PairList* getPairListPInstance(char* buf){
 	}
 }
 
-int setPairListP(char* buf, PairList** key){
+int setPairListP(char* buf, PairList* volatile* key){
 	PairList* tmp = getPairListPInstance(buf);
 	if(!tmp){
 		return -1;
@@ -439,7 +439,7 @@ TripleList* getTripleListPInstance(char* buf){
 	}
 }
 
-int setTripleListP(char* buf, TripleList** key){
+int setTripleListP(char* buf, TripleList* volatile* key){
 	TripleList* tmp = getTripleListPInstance(buf);
 	if(!tmp){
 		return -1;
@@ -519,7 +519,7 @@ ListList* getListListPInstance(char *buf){
 	}
 }
 
-int setListListP(char* buf, ListList** key){
+int setListListP(char* buf, ListList* volatile* key){
 	ListList* tmp = getListListPInstance(buf);
 	if(!tmp){
 		return -1;
@@ -649,12 +649,14 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 			if(!rc){
 				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, buflen
 				if(rc){
+					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 					/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 						"get key \"%V\" from zookeeper but parse fail! ",
 						zookeeper_key[i]);//may be should use ngx_str_t
 						*/
 				}
 			}else{
+				alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
 				//TODO log
 				/*	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 					"get key \"%V\" from zookeeper fail! ",

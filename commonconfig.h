@@ -1,12 +1,12 @@
 typedef struct CommonConfig{
-	char* clientStatusUrl;
-	char* clientEnableUrl;
-	char* clientDisableUrl;
-	char* clientValidateCodeUrl;
-	char* serverRoot;
-	char* serverBlockEventUrl;
-	char* serverHeartbeatUrl;
-	int clientHeartbeatInterval;
+	char* volatile  clientStatusUrl;
+	char* volatile  clientEnableUrl;
+	char* volatile  clientDisableUrl;
+	char* volatile  clientValidateCodeUrl;
+	char* volatile  serverRoot;
+	char* volatile  serverBlockEventUrl;
+	char* volatile  serverHeartbeatUrl;
+	int volatile clientHeartbeatInterval;
 }CommonConfig;
 
 CommonConfig* commonconfig;
