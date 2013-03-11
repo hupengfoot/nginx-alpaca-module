@@ -20,6 +20,8 @@
 
 extern ngx_slab_pool_t* shpool;
 static int inited;
+int config_denymessage = 0;
+int config_denyratemessage = 0;
 char* local_ip;
 char* visitId;
 int allow_ua_empty = 0;
@@ -70,6 +72,18 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, allow_ua_empty),
+		NULL },
+	{ ngx_string("alpaca_denymessage"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, denymessage),
+		NULL },
+	{ ngx_string("alpaca_denyratemessage"),
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, denyratemessage),
 		NULL },
 
 	ngx_null_command
@@ -149,6 +163,20 @@ static ngx_int_t ngx_alpaca_client_init_zookeeper_shm(ngx_conf_t *cf){
 	return NGX_OK;
 }
 
+void get_denymessage_from_config(ngx_alpaca_client_main_conf_t *conf){
+	if(conf->denymessage.data){
+		responsemessageconfig->denyMessage = (char*) conf->denymessage.data;
+		config_denymessage = 1;
+	}
+}
+
+void get_denyratemessage_from_config(ngx_alpaca_client_main_conf_t *conf){
+	if(conf->denyratemessage.data){
+		responsemessageconfig->denyRateMessage = (char*) conf->denyratemessage.data;
+		config_denyratemessage = 1;
+	}
+}
+
 	static ngx_int_t
 ngx_alpaca_client_init(ngx_conf_t *cf)
 {
@@ -163,6 +191,8 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	local_ip = getLocalIP();
     	getVisitId(conf);
 	allow_ua_empty = conf->allow_ua_empty;
+	get_denymessage_from_config(conf);
+	get_denyratemessage_from_config(conf);
 	
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
@@ -231,6 +261,10 @@ ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
 	conf->level.len = 0;
 	conf->level.data = NULL;
 	conf->allow_ua_empty = NGX_CONF_UNSET;
+	conf->denymessage.len = 0;
+	conf->denymessage.data = NULL;
+	conf->denyratemessage.len = 0;
+	conf->denyratemessage.data = NULL;
 	return conf;
 }
 

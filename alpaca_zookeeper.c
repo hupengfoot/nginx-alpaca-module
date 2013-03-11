@@ -44,29 +44,32 @@ cJSON* formatCharPP(char** key, int key_len);
 cJSON* formatPairPP(Pair* key, int key_len);
 cJSON* formatListPP(List* key, int key_len);
 
+extern int config_denymessage;
+extern int config_denyratemessage;
+
 ngx_slab_pool_t* shpool;
 static zhandle_t *zh;
 static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAddress", "alpaca.filter.pushBlockEvent", "alpaca.filter.mount", "alpaca.client.clientHeartbeatEnable","alpaca.filter.blockByVid", "alpaca.policy.acceptIPPrefix", "alpaca.policy.acceptHttpMethod", "alpaca.policy.denyUserAgent", "alpaca.policy.denyUserAgentPrefix", "alpaca.policy.denyIPAddressPrefix", "alpaca.policy.denyIPAddressRate", "alpaca.policy.denyUserAgentContainAnd", "alpaca.policy.denyIPVidRate", "alpaca.policy.denyNoVisitorIdURL.new", "alpaca.url.clientStatusUrl", "alpaca.url.clientEnableUrl", "alpaca.url.clientDisableUrl", "alpaca.url.clientValidateCodeUrl", "alpaca.client.heartbeat.interval", "alpaca.message.denyrate", "alpaca.url.serverRootUrl", "alpaca.url.serverBlockEventNotifyUrl", "alpaca.url.serverHeartbeatUrl","alpaca.filter.blockByVidOnly","alpaca.policy.denyVisterID", "alpaca.policy.denyVisterIDRate"}; 
 
 void get_zk_value(char* keyname, char* buffer, int buflen, int i){
-		int rc;
-		rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);//TODO refactor
+	int rc;
+	rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);//TODO refactor
+	if(rc != 0){
+		alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
+		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+		  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
+		  aclc->zookeeper_addr);//may be should use ngx_str_t
+		//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
+	}else{
+		rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
 		if(rc != 0){
-			alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
+			alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-			  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
+			  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
 			  aclc->zookeeper_addr);//may be should use ngx_str_t
-			//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-		}else{
-			rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-			if(rc != 0){
-				alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
-				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-				  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
-				  aclc->zookeeper_addr);//may be should use ngx_str_t
-				//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-			}
+			//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 		}
+	}
 
 }
 void initConfigWatch(u_char* zookeeper_addr){
@@ -101,23 +104,27 @@ void setDefault(){
 	switchconfig->clientHeartbeatEnable = 0;
 	switchconfig->blockByVidOnly = 0;
 	/*set_default_string(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
-	set_default_string(responsemessageconfig.denyRateMessage, DEFAULTDENYRATE);
-	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
-	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-	set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
-	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
-	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
-	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);*/
-	responsemessageconfig->denyMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYMESSAGE));
-	if(responsemessageconfig->denyMessage){
-		strcpy(responsemessageconfig->denyMessage, DEFAULTDENYMESSAGE);
+	  set_default_string(responsemessageconfig.denyRateMessage, DEFAULTDENYRATE);
+	  set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
+	  set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	  set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	  commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
+	  set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
+	  set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
+	  set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
+	  set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+	  set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);*/
+	if(!config_denymessage){
+		responsemessageconfig->denyMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYMESSAGE));
+		if(responsemessageconfig->denyMessage){
+			strcpy(responsemessageconfig->denyMessage, DEFAULTDENYMESSAGE);
+		}
 	}
-	responsemessageconfig->denyRateMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYRATE));
-	if(responsemessageconfig->denyRateMessage){
-		strcpy(responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
+	if(!config_denyratemessage){
+		responsemessageconfig->denyRateMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYRATE));
+		if(responsemessageconfig->denyRateMessage){
+			strcpy(responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
+		}
 	}
 	commonconfig->clientDisableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_DISABLE));
 	if(commonconfig->clientDisableUrl){
@@ -595,7 +602,7 @@ int parsebuf(char *buf, char *key){
 	else if(strcmp(key, "alpaca.policy.denyNoVisitorIdURL.new") == 0){
 		return setPairListP(buf, &policyconfig->denyNOVisitorIDURL);
 	}
-	else if(strcmp(key, "alpaca.message.denyrate") == 0){
+	else if(strcmp(key, "alpaca.message.denyrate") == 0 && !config_denyratemessage){
 		return setCharP(buf,&responsemessageconfig->denyRateMessage);
 	}
 	else if(strcmp(key, "alpaca.url.clientStatusUrl") == 0){

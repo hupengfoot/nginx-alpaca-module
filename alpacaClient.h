@@ -13,6 +13,8 @@ typedef struct{
 	ngx_str_t log;
 	ngx_str_t level;
 	ngx_flag_t allow_ua_empty;
+	ngx_str_t denymessage;
+	ngx_str_t denyratemessage;
 } ngx_alpaca_client_main_conf_t;
 
 
