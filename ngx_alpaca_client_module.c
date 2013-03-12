@@ -38,49 +38,49 @@ void getVisitId(ngx_alpaca_client_main_conf_t *aclc);
 static ngx_command_t  ngx_alpaca_client_commands[] = {
 
 	{ ngx_string("alpaca"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, enable),
 		NULL },
 	{ ngx_string("alpaca_zk"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, zookeeper_addr),
 		NULL },
 	{ ngx_string("alpaca_vid"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, visitId),
 		NULL },
 	{ ngx_string("alpaca_log"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, log),
 		NULL },
 	{ ngx_string("alpaca_log_level"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, level),
 		NULL },
 	{ ngx_string("alpaca_allow_ua_empty"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, allow_ua_empty),
 		NULL },
 	{ ngx_string("alpaca_denymessage"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, denymessage),
 		NULL },
 	{ ngx_string("alpaca_denyratemessage"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, denyratemessage),
@@ -208,7 +208,6 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 
 static ngx_int_t
 ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
-	//strcpy((char*)shm_zone->shm.addr, "hupeng best");
 	shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
 	policyconfig = ngx_slab_alloc(shpool, sizeof(PolicyConfig));
 	if(!policyconfig){
@@ -229,7 +228,7 @@ ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
 
 	int pid = fork();
 	if(pid < 0){
-	//TODO
+	//TODO log
 	}
 	else if(pid == 0){
 		initConfigWatch(zookeeper_addr);

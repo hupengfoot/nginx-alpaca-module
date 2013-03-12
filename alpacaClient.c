@@ -523,6 +523,39 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	return 0;
 }
 
+char* find_client_ip(char* buf){
+	char* tok1 = strsep(&buf, ", ");
+	char* result;
+	if(buf){
+		result = find_client_ip(buf);
+		if(result){
+			return result;
+		}
+	}
+	if(strlen(tok1) == 0 ||strncmp(tok1, "10.", 3) == 0 || strncmp(tok1, "192.168.", 8) == 0 || strncmp(tok1, "127.", 4) == 0){
+		return NULL;
+	}
+	else{
+		return tok1;
+	}
+
+}
+
+u_char* get_client_ip(ngx_http_request_t *r, size_t* len){
+	u_char* result;
+	if(r->headers_in.x_forwarded_for){
+		if(r->headers_in.x_forwarded_for->value.data){
+			result = (u_char*)find_client_ip((char*)r->headers_in.x_forwarded_for->value.data);
+			if(result){
+				*len = strlen((char*)result);
+				return result;
+			}
+		}
+	}
+	*len = r->connection->addr_text.len;
+	return r->connection->addr_text.data;
+}
+
 Context* getRequestContext(ngx_http_request_t *r){
 	Context* result = ngx_pcalloc(r->pool, sizeof(Context));
 	if(result == NULL){
@@ -532,8 +565,9 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->userAgent_len = r->headers_in.user_agent->value.len;
 	result->httpMethod = r->method_name.data;
 	result->httpMethod_len = r->method_name.len;
-	result->clientIP = r->connection->addr_text.data;
-	result->clientIP_len = r->connection->addr_text.len;
+	result->clientIP = get_client_ip(r, &result->clientIP_len);
+	//result->clientIP = r->connection->addr_text.data;
+	//result->clientIP_len = r->connection->addr_text.len;
 	result->rawUrl = r->unparsed_uri.data;
 	result->rawUrl_len = r->unparsed_uri.len;
 	result->visitId_len = getHttpParam(&result->visitId, r);//TODO rename getHttpParam
@@ -548,7 +582,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if((context->userAgent == NULL && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){
+		else if(((context->userAgent_len == 0 || context->userAgent == NULL) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
 			context->status = DENY_USERAGENT;
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){
@@ -864,4 +898,3 @@ char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context){
 	}
 	return result;
 }
-

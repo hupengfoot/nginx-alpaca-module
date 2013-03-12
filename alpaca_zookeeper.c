@@ -53,7 +53,7 @@ static char* zookeeper_key[] = {"alpaca.filter.enable", "alpaca.policy.denyIPAdd
 
 void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 	int rc;
-	rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);//TODO refactor
+	rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);
 	if(rc != 0){
 		alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
 		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
