@@ -574,6 +574,19 @@ Context* getRequestContext(ngx_http_request_t *r){
 	return result;
 }
 
+int is_empty_string(char* buf, int buflen){
+	int i;
+	if(buflen == 0){
+		return 1;
+	}
+	for(i = 0; i < buflen; i++){
+		if(buf[i] != ' ' || buf[i] != '\t' || buf[i] != '\n'){
+			return 0;
+		}
+	}
+	return 1;	
+}
+
 void handleBlockRequestIfNeeded(Context *context){
 	if(switchconfig->enable == 1){
 		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->acceptIPAddressPrefix) == 1){
@@ -582,7 +595,7 @@ void handleBlockRequestIfNeeded(Context *context){
 		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
 			context->status = DENY_HTTPMETHOD;
 		}
-		else if(((context->userAgent_len == 0 || context->userAgent == NULL) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
+		else if(((context->userAgent_len == 0 || context->userAgent == NULL || is_empty_string((char*)context->userAgent, context->userAgent_len)) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
 			context->status = DENY_USERAGENT;
 		}
 		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){

@@ -15,13 +15,15 @@
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
 
-#define ZOOKEEPER_SHM_SIZE 10*1024*1024
+#define ZOOKEEPER_SHM_SIZE 100*1024*1024
 
 
 extern ngx_slab_pool_t* shpool;
 static int inited;
 int config_denymessage = 0;
 int config_denyratemessage = 0;
+u_char* denymessage;
+u_char* denyratemessage;
 char* local_ip;
 char* visitId;
 int allow_ua_empty = 0;
@@ -163,16 +165,26 @@ static ngx_int_t ngx_alpaca_client_init_zookeeper_shm(ngx_conf_t *cf){
 	return NGX_OK;
 }
 
-void get_denymessage_from_config(ngx_alpaca_client_main_conf_t *conf){
-	if(conf->denymessage.data){
-		responsemessageconfig->denyMessage = (char*) conf->denymessage.data;
+void get_denymessage_from_config(){
+	if(denymessage){
+		responsemessageconfig->denyMessage = ngx_slab_alloc(shpool, strlen((char*)denymessage) + 1);
+		if(!responsemessageconfig->denyMessage){
+			return;
+		}
+		memset(responsemessageconfig->denyMessage, 0, strlen((char*)denymessage) + 1);
+		strcpy(responsemessageconfig->denyMessage, (char*) denymessage);
 		config_denymessage = 1;
 	}
 }
 
-void get_denyratemessage_from_config(ngx_alpaca_client_main_conf_t *conf){
-	if(conf->denyratemessage.data){
-		responsemessageconfig->denyRateMessage = (char*) conf->denyratemessage.data;
+void get_denyratemessage_from_config(){
+	if(denyratemessage){
+		responsemessageconfig->denyRateMessage = ngx_slab_alloc(shpool, strlen((char*)denyratemessage) + 1);
+		if(!responsemessageconfig->denyRateMessage){
+			return;
+		}
+		memset(responsemessageconfig->denyRateMessage, 0, strlen((char*)denyratemessage) + 1);
+		strcpy(responsemessageconfig->denyRateMessage, (char*) denyratemessage);
 		config_denyratemessage = 1;
 	}
 }
@@ -191,8 +203,8 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	local_ip = getLocalIP();
     	getVisitId(conf);
 	allow_ua_empty = conf->allow_ua_empty;
-	get_denymessage_from_config(conf);
-	get_denyratemessage_from_config(conf);
+	denymessage = conf->denymessage.data;
+	denyratemessage = conf->denyratemessage.data;
 	
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
@@ -225,6 +237,8 @@ ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
 	if(!switchconfig){
 		return NGX_ERROR;
 	}
+	get_denymessage_from_config();
+	get_denyratemessage_from_config();
 
 	int pid = fork();
 	if(pid < 0){
