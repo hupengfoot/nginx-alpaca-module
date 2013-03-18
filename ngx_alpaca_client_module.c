@@ -15,7 +15,7 @@
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
 
-#define ZOOKEEPER_SHM_SIZE 100*1024*1024
+#define ZOOKEEPER_SHM_SIZE 50*1024*1024
 
 
 extern ngx_slab_pool_t* shpool;

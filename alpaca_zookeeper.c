@@ -378,6 +378,7 @@ int setPairListP(char* buf, PairList* volatile* key){
 TripleList* getTripleListPInstance(char* buf){
 	cJSON *json, *tmp_json;
 	char* pair;
+	char* value;
 	json = cJSON_Parse(buf);
 	if (!json) {
 		return NULL;
@@ -441,7 +442,20 @@ TripleList* getTripleListPInstance(char* buf){
 					continue;
 				}
 				strcpy(list[i].key.value, pch);
+				free(pair);
 			}
+			value = cJSON_Print(tmp_json);
+			if(!value){
+				list[i].value = NULL;
+				continue;
+			}
+			list[i].value = ngx_slab_alloc(shpool, strlen(value) + 1);
+			if(!list[i].value){
+				list[i].value = NULL;
+				continue;
+			}
+			strcpy(list[i].value, value);
+			free(value);
 		}
 		result->list = list;
 		result->len = itemsize;

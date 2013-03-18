@@ -679,6 +679,9 @@ void handleBlockRequestIfNeeded(Context *context){
 }
 
 int compareDate(char* forbidDate){
+	if(!forbidDate){
+		return -1;
+	}
 	int len = strlen(forbidDate) - 2;
 	int i;
 	int j = 0;
