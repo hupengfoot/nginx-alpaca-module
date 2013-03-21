@@ -502,7 +502,9 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 		u_char* end3 = (u_char*)strstr((char*)*in, ";");
 		u_char* end = NULL;
 		end = (u_char*)((((!end1)?999999999:(U_CHAR)end1) > ((!end2)?999999999:(U_CHAR)end2)) ? ((((!end2)?999999999:(U_CHAR)end2) > ((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end2)?999999999:(U_CHAR)end2)) : ((((!end1)?999999999:(U_CHAR)end1)>((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end1)?999999999:(U_CHAR)end1)));
-
+		if((int)end == 999999999){
+			end = strlen((char*)(cookies[i])->value.data) + (cookies[i])->value.data;
+		}
 		if(end == NULL){
 			*in = NULL;
 			return 0;
