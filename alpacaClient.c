@@ -476,6 +476,10 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getHttpParam(u_char** in, ngx_http_request_t *r){
+	if(!visitId){
+		*in = NULL;
+		return 0;
+	}
 	if(r->headers_in.cookies.nelts == 0){
 		*in = NULL;
 		//return 0;

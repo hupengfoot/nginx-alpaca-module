@@ -16,6 +16,7 @@
 #include "alpaca_get_local_ip.h"
 
 #define ZOOKEEPER_SHM_SIZE 50*1024*1024
+#define DEFAULT_VISIT_ID  "_hc.v"
 
 
 extern ngx_slab_pool_t* shpool;
@@ -154,12 +155,12 @@ static ngx_int_t ngx_alpaca_client_init_zookeeper_shm(ngx_conf_t *cf){
 	name.len = strlen("zookeeper_shm");
 	size_t size;
 	size = ZOOKEEPER_SHM_SIZE;
-    	ngx_shm_zone_t            *shm_zone;
-    	shm_zone = ngx_shared_memory_add(cf, &name, size,
-                                     &ngx_alpaca_client_module);
-    	if (shm_zone == NULL) {
-        	return NGX_ERROR;
-    	}
+	ngx_shm_zone_t            *shm_zone;
+	shm_zone = ngx_shared_memory_add(cf, &name, size,
+			&ngx_alpaca_client_module);
+	if (shm_zone == NULL) {
+		return NGX_ERROR;
+	}
 	shm_zone->init = ngx_alpaca_client_init_zone;
 	shm_zone->data = name.data;//TODO how to set this value
 	return NGX_OK;
@@ -201,11 +202,11 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 
 	zookeeper_addr = conf->zookeeper_addr.data;
 	local_ip = getLocalIP();
-    	getVisitId(conf);
+	getVisitId(conf);
 	allow_ua_empty = conf->allow_ua_empty;
 	denymessage = conf->denymessage.data;
 	denyratemessage = conf->denyratemessage.data;
-	
+
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
 	h = ngx_array_push(&cmcf->phases[NGX_HTTP_CONTENT_PHASE].handlers);
@@ -242,17 +243,14 @@ ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
 
 	int pid = fork();
 	if(pid < 0){
-	//TODO log
+		alpaca_log_wirte(ALPACA_ERROR, "create process fail, when inited");
 	}
 	else if(pid == 0){
 		initConfigWatch(zookeeper_addr);
 		heartbeatcycle();
 	}
-	else{
-		//TODO
-	}
 
-        return NGX_OK;
+	return NGX_OK;
 }
 
 	static void *
@@ -282,8 +280,8 @@ ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
 }
 
 /*	static char *
-ngx_alpaca_client_merge_main_conf(ngx_conf_t *cf, void *parent, void *child)
-{
+	ngx_alpaca_client_merge_main_conf(ngx_conf_t *cf, void *parent, void *child)
+	{
 	printf("called:ngx_echo_merge_loc_conf\n");
 	ngx_alpaca_client_main_conf_t *prev = parent;
 	ngx_alpaca_client_main_conf_t *conf = child;
@@ -294,13 +292,24 @@ ngx_alpaca_client_merge_main_conf(ngx_conf_t *cf, void *parent, void *child)
 	ngx_conf_merge_value(conf->enable, prev->enable, 0);
 	ngx_conf_merge_ptr_value(conf->zh, prev->zh, NULL);
 	return NGX_CONF_OK;
-}*/
+	}*/
 void getVisitId(ngx_alpaca_client_main_conf_t *aclc){
-	visitId = malloc(aclc->visitId.len + 1);
-	if(visitId == NULL){
-		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get visitid");
-		return;
+	if(aclc->visitId.data == NULL){
+		visitId = malloc(strlen(DEFAULT_VISIT_ID) + 1);
+		if(visitId == NULL){
+			alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get visitid");
+			return;
+		}
+		memset(visitId, 0, aclc->visitId.len + 1);
+		strcpy(visitId, DEFAULT_VISIT_ID);
 	}
-	memset(visitId, 0, aclc->visitId.len + 1);
-	strcpy(visitId, (char*)aclc->visitId.data);
+	else{
+		visitId = malloc(aclc->visitId.len + 1);
+		if(visitId == NULL){
+			alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get visitid");
+			return;
+		}
+		memset(visitId, 0, aclc->visitId.len + 1);
+		strcpy(visitId, (char*)aclc->visitId.data);
+	}
 }
