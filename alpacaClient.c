@@ -567,8 +567,14 @@ Context* getRequestContext(ngx_http_request_t *r){
 	if(result == NULL){
 		return NULL;
 	}
-	result->userAgent = r->headers_in.user_agent->value.data;
-	result->userAgent_len = r->headers_in.user_agent->value.len;
+	if(r->headers_in.user_agent){
+		result->userAgent = r->headers_in.user_agent->value.data;
+		result->userAgent_len = r->headers_in.user_agent->value.len;
+	}
+	else{
+		result->userAgent = NULL;
+		result->userAgent = 0;
+	}
 	result->httpMethod = r->method_name.data;
 	result->httpMethod_len = r->method_name.len;
 	result->clientIP = get_client_ip(r, &result->clientIP_len);
