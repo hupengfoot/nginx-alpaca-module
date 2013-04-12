@@ -374,7 +374,7 @@ int doFilter(ngx_http_request_t *r, ngx_chain_t **out){
 }
 
 void changeIntToChar(char** buf, int num, int bit){
-	while(num > 0){
+	while(bit > 0){
 		sprintf(*buf, "%d", num / bit);
 		(*buf)++;
 		num = num % bit;
