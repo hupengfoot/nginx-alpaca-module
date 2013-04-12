@@ -29,6 +29,9 @@ char* local_ip;
 char* visitId;
 int allow_ua_empty = 0;
 static u_char* zookeeper_addr;
+long* push_event_num;
+
+
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
 static void *ngx_alpaca_client_create_main_conf(ngx_conf_t *cf);
@@ -222,6 +225,10 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 static ngx_int_t
 ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
 	shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+	push_event_num = ngx_slab_alloc(shpool, sizeof(long));
+	if(!push_event_num){
+		return NGX_ERROR;
+	}
 	policyconfig = ngx_slab_alloc(shpool, sizeof(PolicyConfig));
 	if(!policyconfig){
 		return NGX_ERROR;

@@ -42,7 +42,7 @@ extern char* visitId;
 extern int allow_ua_empty;
 static int pushblockthreadstart;
 static time_t expiretime;
-static long push_event_num = 0;
+extern long* push_event_num;
 
 void procrequest(ngx_http_request_t *r, Context *context);
 int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context);
@@ -112,7 +112,10 @@ void sendFirewallHttpRequest(){
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
-	push_event_num++;
+	int temp_event_num;
+	do{
+		temp_event_num = *push_event_num;
+	}while(!__sync_bool_compare_and_swap(push_event_num, temp_event_num, temp_event_num + 1));
 	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
 
 	if(time(NULL) > expiretime){
@@ -128,7 +131,7 @@ void sendFirewallHttpRequest(){
 		char num[129];
 		memset(push_info, 0, 1024);
 		strcpy(push_info, "have pushed ");
-		sprintf(num, "%ld", push_event_num);
+		sprintf(num, "%ld", *push_event_num);
 		strcat(push_info, num);
 		strcat(push_info, " event");
 		alpaca_log_wirte(ALPACA_INFO, push_info);
