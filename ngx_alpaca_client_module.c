@@ -29,7 +29,7 @@ char* local_ip;
 char* visitId;
 int allow_ua_empty = 0;
 static u_char* zookeeper_addr;
-long* push_event_num;
+volatile long* push_event_num;
 
 
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
