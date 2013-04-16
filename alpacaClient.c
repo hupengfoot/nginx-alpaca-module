@@ -249,7 +249,7 @@ httpParams_pool* multi_malloc_blockEvent(Context* context){
 		alpaca_memory_pool_destroy(pool);
 		return NULL;
 	}
-	httpParams[4].key = alpaca_memory_pool_malloc(pool, strlen("httpMethod"));
+	httpParams[4].key = alpaca_memory_pool_malloc(pool, strlen("httpMethod") + 1);
 	if(!httpParams[4].key){
 		alpaca_memory_pool_destroy(pool);
 		return NULL;
