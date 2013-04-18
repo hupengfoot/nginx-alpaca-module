@@ -278,7 +278,7 @@ ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
 	conf->log.data = NULL;
 	conf->level.len = 0;
 	conf->level.data = NULL;
-	conf->allow_ua_empty = NGX_CONF_UNSET;
+	conf->allow_ua_empty = 0;
 	conf->denymessage.len = 0;
 	conf->denymessage.data = NULL;
 	conf->denyratemessage.len = 0;
