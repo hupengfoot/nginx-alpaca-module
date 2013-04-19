@@ -15,7 +15,7 @@
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
 
-#define ZOOKEEPER_SHM_SIZE 50*1024*1024
+#define ZOOKEEPER_SHM_SIZE 200*1024*1024
 #define DEFAULT_VISIT_ID  "_hc.v"
 
 
