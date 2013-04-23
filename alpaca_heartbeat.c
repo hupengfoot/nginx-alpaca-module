@@ -42,6 +42,9 @@ void heartbeatcycle(){
 void sendFirewallHeartbeatRequest(){
 	int paramnum = 4;
 	httpParams_pool* p =  multi_malloc_heartbeatRequest(paramnum);
+	if(!p){
+		return;
+	}
 	CURL *curl;
 	char *reqUrl = alpaca_memory_pool_malloc(p->pool, strlen(commonconfig->serverRoot) + strlen(commonconfig->serverHeartbeatUrl) + 1);
 	if(!reqUrl){
