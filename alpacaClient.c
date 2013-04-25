@@ -490,31 +490,29 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	ngx_table_elt_t** cookies = r->headers_in.cookies.elts;
 	int i = 0;
 	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
-
+		
 		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
+		u_char* end = *in + (cookies[i])->value.len;
 		if(*in == NULL){
 			continue;
 		}
-		*in = *in + strlen(visitId);
-		while(1){
-			if(strncmp((char*)*in, "=", 1) == 0 || strncmp((char*)*in, "\"", 1) == 0 || strncmp((char*)*in, " ", 1) == 0 || strncmp((char*)*in, "\\", 1) == 0 ){
-				(*in)++;
-			}
-			else{
-				break;
-			}
+		*in = *in + strlen(visitId) + 1;
+		if(strncmp((char*)*in, "\"", 1) == 0){
+			(*in)++;
 		}
-		u_char* end1 = (u_char*)strstr((char*)*in, "\\");
-		u_char* end2 = (u_char*)strstr((char*)*in, "\"");
-		u_char* end3 = (u_char*)strstr((char*)*in, ";");
-		u_char* end = NULL;
-		end = (u_char*)((((!end1)?999999999:(U_CHAR)end1) > ((!end2)?999999999:(U_CHAR)end2)) ? ((((!end2)?999999999:(U_CHAR)end2) > ((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end2)?999999999:(U_CHAR)end2)) : ((((!end1)?999999999:(U_CHAR)end1)>((!end3)?999999999:(U_CHAR)end3))?((!end3)?999999999:(U_CHAR)end3):((!end1)?999999999:(U_CHAR)end1)));
-		if((U_CHAR)end == 999999999){
-			end = strlen((char*)(cookies[i])->value.data) + (cookies[i])->value.data;
+		if(strncmp((char*)end, "\"", 1) == 0){
+			end--;
 		}
-		if(end == NULL){
-			*in = NULL;
+		if(strncmp((char*)*in, "\"", 1) == 0){
 			return 0;
+		}
+		else{
+			if(strncmp((char*)*in, "\"", 1) == 0 && strncmp((char*)(*in + 1), "\\", 1) == 0){
+				(*in) = (*in) + 2;
+			}
+			if(strncmp((char*)(end - 1), "\\", 1) == 0 && strncmp((char*)(end - 1), "\"", 1) == 0){
+				end = end + 2;
+			}
 		}
 		return (end - (*in));
 	}
