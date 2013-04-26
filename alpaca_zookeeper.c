@@ -669,7 +669,25 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		if(strcmp(path,keyname) == 0){
-			get_zk_value(keyname, buffer, buflen, i);
+			int rc;
+			rc = zoo_get(zzh, keyname, 1, buffer, &buflen, NULL);
+			if(rc != 0){
+				alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
+				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+				  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
+				  aclc->zookeeper_addr);//may be should use ngx_str_t
+				//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
+			}else{
+				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+				if(rc != 0){
+					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
+					/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+					  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
+					  aclc->zookeeper_addr);//may be should use ngx_str_t
+					//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
+				}
+			}
+
 			break;
 		}
 	}
