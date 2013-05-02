@@ -103,6 +103,10 @@ httpParams_pool* multi_malloc_heartbeatRequest(int paramnum){
 		return NULL;
 	}
 	Pair* httpParams = alpaca_memory_pool_malloc(p, sizeof(Pair)*paramnum);
+	if(!httpParams){
+		alpaca_memory_pool_destroy(p);
+		return NULL;
+	}
 	httpParams[0].key = alpaca_memory_pool_malloc(p, strlen("clientIP") + 1);
 	if(!httpParams[0].key){
 		alpaca_memory_pool_destroy(p);
