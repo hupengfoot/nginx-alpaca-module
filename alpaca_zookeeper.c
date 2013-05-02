@@ -352,6 +352,7 @@ PairList* getPairListPInstance(char* buf){
 		}
 		result->list = list;
 		result->len = itemsize;
+		cJSON_Delete(json);
 		return result;
 	}
 }
@@ -482,9 +483,15 @@ int setTripleListP(char* buf, TripleList* volatile* key){
 			*key = tmp;
 			int i;
 			for(i = 0; i < before->len; i++){
-				ngx_slab_free(shpool, before->list[i].key.key);
-				ngx_slab_free(shpool, before->list[i].key.value);
-				ngx_slab_free(shpool, before->list[i].value);
+				if(before->list[i].key.key){
+					ngx_slab_free(shpool, before->list[i].key.key);
+				}
+				if(before->list[i].key.value){
+					ngx_slab_free(shpool, before->list[i].key.value);
+				}
+				if(before->list[i].value){
+					ngx_slab_free(shpool, before->list[i].value);
+				}
 			}
 			ngx_slab_free(shpool, before->list);
 			ngx_slab_free(shpool, before);
