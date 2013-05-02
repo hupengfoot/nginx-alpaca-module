@@ -248,6 +248,7 @@ List* getListPInstance(char* buf){
 			else{
 				list[i] = (char*)ngx_slab_alloc(shpool, strlen(tmp) + 1);
 				if(!list[i]){
+					free(tmp);
 					continue;
 				}
 				memset(list[i], 0, strlen(tmp) + 1);
@@ -274,7 +275,9 @@ int setListP(char* buf, List* volatile *key){
 			*key = tmp;
 			int i;
 			for(i = 0; i < before->len; i++){
-				ngx_slab_free(shpool, before->list[i]);
+				if(before->list[i]){
+					ngx_slab_free(shpool, before->list[i]);
+				}
 			}
 			ngx_slab_free(shpool, before->list);
 			ngx_slab_free(shpool, before);
@@ -324,6 +327,7 @@ PairList* getPairListPInstance(char* buf){
 			else{
 				list[i].key = ngx_slab_alloc(shpool, strlen(tmp1) + 1);
 				if(!list[i].key){
+					free(tmp1);
 					continue;
 				}
 				memset(list[i].key, 0, strlen(tmp1) + 1);
@@ -338,6 +342,7 @@ PairList* getPairListPInstance(char* buf){
 			else{
 				list[i].value = ngx_slab_alloc(shpool, strlen(tmp2) + 1);
 				if(!list[i].value){
+					free(tmp2);
 					continue;
 				}
 				memset(list[i].value, 0, strlen(tmp2) + 1);
@@ -362,8 +367,12 @@ int setPairListP(char* buf, PairList* volatile* key){
 			*key = tmp;
 			int i;
 			for(i = 0; i < before->len; i++){
-				ngx_slab_free(shpool, before->list[i].key);
-				ngx_slab_free(shpool, before->list[i].value);
+				if(before->list[i].key){
+					ngx_slab_free(shpool, before->list[i].key);
+				}
+				if(before->list[i].value){
+					ngx_slab_free(shpool, before->list[i].value);
+				}
 			}
 			ngx_slab_free(shpool, before->list);
 			ngx_slab_free(shpool, before);
@@ -435,9 +444,6 @@ TripleList* getTripleListPInstance(char* buf){
 				}
 				list[i].key.value = ngx_slab_alloc(shpool, strlen(pch) + 1);
 				if(!list[i].key.value){
-					ngx_slab_free(shpool, list[i].key.value);
-					list[i].key.key = NULL;
-					list[i].key.value = NULL;
 					free(pair);
 					continue;
 				}
@@ -452,6 +458,7 @@ TripleList* getTripleListPInstance(char* buf){
 			list[i].value = ngx_slab_alloc(shpool, strlen(value) + 1);
 			if(!list[i].value){
 				list[i].value = NULL;
+				free(value);
 				continue;
 			}
 			strcpy(list[i].value, value);
