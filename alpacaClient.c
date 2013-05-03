@@ -492,7 +492,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
 		
 		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
-		u_char* end = *in + (cookies[i])->value.len;
+		u_char* end = *in + (cookies[i])->value.len - 1;
 		if(*in == NULL){
 			continue;
 		}
@@ -507,11 +507,11 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 			return 0;
 		}
 		else{
-			if(strncmp((char*)*in, "\"", 1) == 0 && strncmp((char*)(*in + 1), "\\", 1) == 0){
+			if(strncmp((char*)*in, "\\", 1) == 0 && strncmp((char*)(*in + 1), "\"", 1) == 0){
 				(*in) = (*in) + 2;
 			}
-			if(strncmp((char*)(end - 1), "\\", 1) == 0 && strncmp((char*)(end - 1), "\"", 1) == 0){
-				end = end + 2;
+			if(strncmp((char*)(end - 1), "\\", 1) == 0 && strncmp((char*)(end), "\"", 1) == 0){
+				end = end - 2;
 			}
 		}
 		return (end - (*in));
