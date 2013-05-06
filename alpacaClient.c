@@ -492,9 +492,12 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
 		
 		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
-		u_char* end = *in + (cookies[i])->value.len - 1;
 		if(*in == NULL){
 			continue;
+		}
+		u_char* end = (u_char*)strstr((char*)(*in), ";") - 1;
+		if(!end){
+			end = *in + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
 		if(strncmp((char*)*in, "\"", 1) == 0){
@@ -514,7 +517,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 				end = end - 2;
 			}
 		}
-		return (end - (*in));
+		return (end - (*in) + 1);
 	}
 	for(i = 0; i < (int)r->headers_in.headers.part.nelts; i ++){
 		if(strlen(visitId) != (unsigned int)(((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->key.len)){
@@ -646,6 +649,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig->denyIPVidRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig->denyIPVidRate->len; i++){
+							if(strlen(policyconfig->denyIPVidRate->list[i].key.key) != context->clientIP_len || strlen(policyconfig->denyIPVidRate->list[i].key.value) != context->visitId_len){
+								continue;
+							}
 							if(strncmp(policyconfig->denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig->denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig->denyIPVidRate->list[i].key.value, (char*)context->visitId, strlen(policyconfig->denyIPVidRate->list[i].key.value)) == 0){
 
 								if(compareDate(policyconfig->denyIPVidRate->list[i].value) == 1){
@@ -660,6 +666,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig->denyIPAddressRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
+							if(strlen(policyconfig->denyIPAddressRate->list[i].key)-2 != context->clientIP_len){
+								continue;
+							}
 							if(strncmp(policyconfig->denyIPAddressRate->list[i].key+1, (char*)context->clientIP, strlen(policyconfig->denyIPAddressRate->list[i].key)-2) == 0){
 
 								if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
@@ -674,6 +683,9 @@ void handleBlockRequestIfNeeded(Context *context){
 					if(policyconfig->denyVistorIDRate != NULL){
 						int i;
 						for(i = 0; i < policyconfig->denyVistorIDRate->len; i++){
+							if(strlen(policyconfig->denyVistorIDRate->list[i].key)-2 != context->visitId_len){
+								continue;
+							}
 							if(strncmp(policyconfig->denyVistorIDRate->list[i].key+1, (char*)context->visitId, strlen(policyconfig->denyVistorIDRate->list[i].key)-2) == 0){
 
 								if(compareDate(policyconfig->denyVistorIDRate->list[i].value) == 1){
