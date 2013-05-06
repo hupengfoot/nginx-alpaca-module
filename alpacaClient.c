@@ -495,8 +495,9 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 		if(*in == NULL){
 			continue;
 		}
-		u_char* end = (u_char*)strstr((char*)(*in), ";") - 1;
-		if(!end){
+		u_char* end = NULL;
+		end = (u_char*)strchr((char*)(*in), ';') - 1;
+		if(!end || (U_CHAR)end == -1){
 			end = *in + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
@@ -635,6 +636,9 @@ void handleBlockRequestIfNeeded(Context *context){
 				if(policyconfig->denyIPAddressRate != NULL){
 					int i;
 					for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
+						if((strlen(policyconfig->denyIPAddressRate->list[i].key) - 2) != context->clientIP_len){
+							continue;
+						}
 						if(strncmp(policyconfig->denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, context->clientIP_len) == 0){
 							if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
 								context->status = DENY_IPRATE;
