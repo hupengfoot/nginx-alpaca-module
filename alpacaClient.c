@@ -490,14 +490,26 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	ngx_table_elt_t** cookies = r->headers_in.cookies.elts;
 	int i = 0;
 	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
-		
+
 		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
 		if(*in == NULL){
 			continue;
 		}
 		u_char* end = NULL;
-		end = (u_char*)strchr((char*)(*in), ';') - 1;
-		if(!end || (U_CHAR)end == -1){
+		end = (u_char*)strstr((char*)(*in), "; ");
+		if((U_CHAR)end != -1 && end){
+			u_char* end_tmp = end + 2;
+			while(end_tmp < cookies[i]->value.data + cookies[i]->value.len){
+				if(*end_tmp != ' '){
+					break;
+				}
+				end_tmp ++;
+			}
+			if(end_tmp < cookies[i]->value.data + cookies[i]->value.len){
+				end = end -1;
+			}
+		}
+		else{
 			end = *in + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
