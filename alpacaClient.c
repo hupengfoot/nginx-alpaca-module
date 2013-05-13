@@ -556,7 +556,9 @@ u_char* get_client_ip(ngx_http_request_t *r, size_t* len){
 	u_char* result;
 	if(r->headers_in.x_forwarded_for){
 		if(r->headers_in.x_forwarded_for->value.data){
-			result = (u_char*)find_client_ip((char*)r->headers_in.x_forwarded_for->value.data);
+			char* clientIP = ngx_pcalloc(r->pool, sizeof(r->headers_in.x_forwarded_for->value.len + 1));
+			strcpy(clientIP, (char*) r->headers_in.x_forwarded_for->value.data);
+			result = (u_char*)find_client_ip(clientIP);
 			if(result){
 				*len = strlen((char*)result);
 				return result;
