@@ -555,7 +555,7 @@ char* find_client_ip(char* buf){
 			return result;
 		}
 	}
-	if(strlen(tok1) == 0 ||strncmp(tok1, "10.", 3) == 0 || strncmp(tok1, "192.168.", 8) == 0 || strncmp(tok1, "127.", 4) == 0){
+	if(strlen(tok1) == 0 || strncmp(tok1, "10.1", 4) == 0 || strncmp(tok1, "10.2", 4) == 0 || strncmp(tok1, "10.20", 5) == 0 || strncmp(tok1, "192.168.", 8) == 0 || strncmp(tok1, "127.", 4) == 0){
 		return NULL;
 	}
 	else{
@@ -566,19 +566,21 @@ char* find_client_ip(char* buf){
 
 u_char* get_client_ip(ngx_http_request_t *r, size_t* len){
 	u_char* result;
-	if(r->headers_in.x_forwarded_for){
-		if(r->headers_in.x_forwarded_for->value.data){
-			char* clientIP = ngx_pcalloc(r->pool, r->headers_in.x_forwarded_for->value.len + 1);
-			if(!clientIP){
-				result = (u_char*)find_client_ip((char*)r->headers_in.x_forwarded_for->value.data);
-			}
-			else{
-				strcpy(clientIP, (char*) r->headers_in.x_forwarded_for->value.data);
-				result = (u_char*)find_client_ip(clientIP);
-			}
-			if(result){
-				*len = strlen((char*)result);
-				return result;
+	if(strncmp(r->connection->addr_text.data, "10.1", 4) == 0 || strncmp(r->connection->addr_text.data, "10.2", 4) == 0 || strncmp(r->connection->addr_text.data, "10.20", 5) == 0 || strncmp(r->connection->addr_text.data, "192.168.", 8) == 0 || strncmp(r->connection->addr_text.data, "127.", 4) == 0){
+		if(r->headers_in.x_forwarded_for){
+			if(r->headers_in.x_forwarded_for->value.data){
+				char* clientIP = ngx_pcalloc(r->pool, r->headers_in.x_forwarded_for->value.len + 1);
+				if(!clientIP){
+					result = (u_char*)find_client_ip((char*)r->headers_in.x_forwarded_for->value.data);
+				}
+				else{
+					strcpy(clientIP, (char*) r->headers_in.x_forwarded_for->value.data);
+					result = (u_char*)find_client_ip(clientIP);
+				}
+				if(result){
+					*len = strlen((char*)result);
+					return result;
+				}
 			}
 		}
 	}
