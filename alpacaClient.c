@@ -566,7 +566,7 @@ char* find_client_ip(char* buf){
 
 u_char* get_client_ip(ngx_http_request_t *r, size_t* len){
 	u_char* result;
-	if(strncmp(r->connection->addr_text.data, "10.1", 4) == 0 || strncmp(r->connection->addr_text.data, "10.2", 4) == 0 || strncmp(r->connection->addr_text.data, "10.20", 5) == 0 || strncmp(r->connection->addr_text.data, "192.168.", 8) == 0 || strncmp(r->connection->addr_text.data, "127.", 4) == 0){
+	if(strncmp((char*)r->connection->addr_text.data, "10.1", 4) == 0 || strncmp((char*)r->connection->addr_text.data, "10.2", 4) == 0 || strncmp((char*)r->connection->addr_text.data, "10.20", 5) == 0 || strncmp((char*)r->connection->addr_text.data, "192.168.", 8) == 0 || strncmp((char*)r->connection->addr_text.data, "127.", 4) == 0){
 		if(r->headers_in.x_forwarded_for){
 			if(r->headers_in.x_forwarded_for->value.data){
 				char* clientIP = ngx_pcalloc(r->pool, r->headers_in.x_forwarded_for->value.len + 1);
