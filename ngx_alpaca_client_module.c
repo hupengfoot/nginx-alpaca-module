@@ -212,7 +212,7 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
-	h = ngx_array_push(&cmcf->phases[NGX_HTTP_CONTENT_PHASE].handlers);
+	h = ngx_array_push(&cmcf->phases[NGX_HTTP_PREACCESS_PHASE].handlers);
 	if (h == NULL) {
 		return NGX_ERROR;
 	}
