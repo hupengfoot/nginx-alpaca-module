@@ -146,7 +146,12 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 		if(rc == NGX_ERROR){
 			return rc;
 		}
-		return ngx_http_output_filter(r, out);
+		rc = ngx_http_output_filter(r, out);
+		if(rc != NGX_DECLINED){
+			ngx_http_finalize_request(r, rc);
+			return NGX_OK;
+		}
+		return rc;
 	}else{
 		return NGX_DECLINED;
 	}
