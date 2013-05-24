@@ -149,7 +149,7 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 		rc = ngx_http_output_filter(r, out);
 		if(rc != NGX_DECLINED){
 			ngx_http_finalize_request(r, rc);
-			return NGX_OK;
+			return NGX_DONE;
 		}
 		return rc;
 	}else{
