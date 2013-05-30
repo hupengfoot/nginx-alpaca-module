@@ -1,5 +1,6 @@
 
 #include <curl/curl.h>
+#include <zookeeper/zookeeper.h>
 
 #include "switchconfig.h"
 #include "commonconfig.h"
@@ -7,10 +8,15 @@
 #include "urlencode.h"
 #include "md5.h"
 #include "alpaca_constant.h"
+#include "alpaca_zookeeper.h"
+#include "alpaca_log.h"
 
 #define DEFAULT_HEARTBEAT_MAX_LENTH 8192
 
 extern char* local_ip;
+extern zhandle_t *zh;
+extern u_char* zookeeper_addr;
+char* zookeeper_key_tmp[] = ZOOKEEPERWATCHKEYS;
 
 void sendFirewallHeartbeatRequest();
 httpParams_pool* multi_malloc_heartbeatRequest(int paramnum);
@@ -19,7 +25,28 @@ void heartbeatcycle(){
 	while(1) {
 		if(switchconfig->clientHeartbeatEnable){
 			sendFirewallHeartbeatRequest();
-		}	
+		}
+		if(zoo_state(zh)){
+			if(is_unrecoverable(zh) == ZINVALIDSTATE){
+				zookeeper_close(zh);
+				zh = NULL;
+				alpaca_log_wirte(ALPACA_WARN, "get key from zookeeper fail! reconnected...");
+				zh = zookeeper_init((char*)zookeeper_addr, watcher, 10000, 0, 0, 0);
+				if(!zh){
+					alpaca_log_wirte(ALPACA_ERROR, "init zookeeper fail");
+				}
+				int zookeeper_key_length = sizeof(zookeeper_key_tmp)/sizeof(char*);
+				int i = 0;
+				char buffer[ZOOKEEPERBUFSIZE];//TODO check size
+				for(i = 0; i< zookeeper_key_length; i++){
+					int buflen = ZOOKEEPERBUFSIZE;
+					memset(buffer, 0, buflen);
+					char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key_tmp[i]) + 1];
+					sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key_tmp[i]);
+					get_zk_value(keyname, buffer, buflen, i);
+				}
+			}
+		}
 		sleep(commonconfig->clientHeartbeatInterval);
 	}
 	return;
