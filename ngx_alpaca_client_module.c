@@ -251,7 +251,7 @@ ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
 		return NGX_ERROR;
 	}
 	get_denymessage_from_config();
-	get_denyratemessage_from_config();
+	get_denyratemessage_from_config();//need change
 
 	int pid = fork();
 	if(pid < 0){
