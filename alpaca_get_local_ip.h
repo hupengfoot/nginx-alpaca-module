@@ -1,2 +1,2 @@
 
-char* getLocalIP();
+char* getLocalIP(char* interfacename);

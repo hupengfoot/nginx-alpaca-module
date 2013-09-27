@@ -119,7 +119,10 @@ void sendFirewallHeartbeatRequest(){
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
-	curl_easy_perform(curl);
+        int err = curl_easy_perform(curl);
+	if(err == 0){
+		printf("ok");
+	}
 	curl_easy_cleanup(curl);
 	httpParams_pool_free(p);
 }

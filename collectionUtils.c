@@ -4,7 +4,7 @@
 
 
 
-const char* strcasestr(const char* str, const char* subStr);
+const char* strCasestr(const char* str, const char* subStr);
 
 
 int startWithIgnoreCaseContains(char* target, List* collection){
@@ -70,7 +70,7 @@ int ignoreCaseContainAll(char* target, ListList* collection_list){
 	return 0;
 }
 
-const char* strcasestr(const char* str, const char* subStr)
+const char* strCasestr(const char* str, const char* subStr)
 {
 	int len = strlen(subStr) - 1;
 	if(len == 0)

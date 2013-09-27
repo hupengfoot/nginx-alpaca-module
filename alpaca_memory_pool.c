@@ -1,5 +1,5 @@
-#include <malloc.h>
-#include <string.h>
+#include <ngx_config.h>
+#include <ngx_core.h>
 
 #include "alpaca_memory_pool.h"
 

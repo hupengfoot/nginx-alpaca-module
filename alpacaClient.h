@@ -10,6 +10,7 @@ typedef struct{
 	ngx_str_t zookeeper_addr;
 	ngx_str_t visitId;
 	ngx_flag_t enable;
+	ngx_str_t interface;
 	ngx_str_t log;
 	ngx_str_t level;
 	ngx_flag_t allow_ua_empty;

@@ -157,8 +157,9 @@ void startPushRequestThread(ngx_http_request_t *r){
 	if(!pushblockthreadstart){
 		pushblockthreadstart = 1;
 		pthread_t tid;
-		tid = pthread_create(&tid, NULL, pushRequestThread, NULL);
-		if(tid){
+		int err;
+		err = pthread_create(&tid, NULL, pushRequestThread, NULL);
+		if(err){
 			alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 			  "start push request thread, error num is \"%d\" ",

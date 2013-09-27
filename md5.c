@@ -1,7 +1,4 @@
-#include <openssl/md5.h>
-#include <string.h>
-#include <malloc.h>
-#include <stdio.h>
+#include <ngx_core.h>
 
 #include "alpaca_memory_pool.h"
 #include "md5.h"
