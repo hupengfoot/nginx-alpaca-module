@@ -14,6 +14,9 @@
 #include "alpaca_zookeeper.h"
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 #define ZOOKEEPER_SHM_SIZE 200*1024*1024
 #define DEFAULT_VISIT_ID  "_hc.v"
@@ -21,7 +24,7 @@
 
 
 extern ngx_slab_pool_t* shpool;
-static int inited;
+//static int inited;
 int config_denymessage = 0;
 int config_denyratemessage = 0;
 u_char* denymessage;
@@ -31,6 +34,8 @@ char* visitId;
 int allow_ua_empty = 0;
 u_char* zookeeper_addr;
 volatile unsigned long* push_event_num;
+lua_State* L;
+char* lua_filename;
 
 typedef struct {
 	ngx_flag_t       enable;
@@ -42,6 +47,7 @@ typedef struct {
 } ngx_proc_send_conf_t;
 
 
+ngx_int_t ngx_alpaca_init_process(ngx_cycle_t *cycle);
 static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
 static void *ngx_alpaca_client_create_main_conf(ngx_conf_t *cf);
@@ -66,6 +72,8 @@ static char  *week[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
 static char  *months[] = { "January", "February", "March", "April", "May",
 	"June", "July", "August", "Semptember", "October",
 	"November", "December" };
+
+ngx_socket_t        pipefd[2];
 
 static ngx_command_t ngx_proc_send_commands[] = {
 
@@ -193,6 +201,12 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, denyratemessage),
 		NULL },
+	{ ngx_string("lua_file"),
+		NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_alpaca_client_main_conf_t, lua_file),
+		NULL },
 
 	ngx_null_command
 };
@@ -219,7 +233,7 @@ ngx_module_t  ngx_alpaca_client_module = {
 	NGX_HTTP_MODULE,                       /* module type */
 	NULL,                                  /* init master */
 	NULL,                                  /* init module */
-	NULL,                                  /* init process */
+	&ngx_alpaca_init_process,                                  /* init process */
 	NULL,                                  /* init thread */
 	NULL,                                  /* exit thread */
 	NULL,                                  /* exit process */
@@ -227,6 +241,40 @@ ngx_module_t  ngx_alpaca_client_module = {
 	NGX_MODULE_V1_PADDING
 };
 
+static void ngx_pipe_handler(ngx_event_t *ev){
+
+	char buf[1024];
+	int w,h;
+	read(pipefd[1], buf, 1024);
+	lua_getglobal(L,"width");
+	lua_getglobal(L,"height");
+	w = lua_tointeger(L,-2);
+	h = lua_tointeger(L,-1);
+
+	lua_getglobal(L,"decode");               //调用lua中的函数sum
+	lua_pushinteger(L,buf) ;
+	int ret = lua_pcall(L,1,1,0) ;
+	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno,
+			"hellokitty!  %s, %d, %d", buf, w, h);
+}
+
+ngx_int_t    
+ngx_alpaca_init_process(ngx_cycle_t *cycle){
+	if (ngx_add_channel_event(cycle, pipefd[1], NGX_READ_EVENT,
+				ngx_pipe_handler)
+			== NGX_ERROR)
+	{
+		/* fatal */
+		exit(2);
+	}
+	init();
+	L = luaL_newstate();
+	luaL_openlibs(L);
+	if (luaL_loadfile(L,lua_filename) || lua_pcall(L,0,0,0)) {
+		return NGX_ERROR;
+	}
+	return NGX_OK;
+}
 
 	static ngx_int_t
 ngx_alpaca_client_handler(ngx_http_request_t *r)
@@ -236,10 +284,10 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 	ngx_chain_t                *out = NULL;
 
 	ahlf = ngx_http_get_module_main_conf(r, ngx_alpaca_client_module);
-	if(!inited){ //TODO 
-		init(ahlf, r);
-		inited = 1;
-	}
+	//	if(!inited){ 
+	//		init(ahlf, r);
+	//		inited = 1;
+	//	}
 	if(ahlf->enable == 1){ //TODO reset
 		if(doFilter(r, &out) == CONTEXTSTATUSNEEDNOTRESPONSE){
 			return NGX_DECLINED;
@@ -259,22 +307,22 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 	}
 }
 
-static ngx_int_t ngx_alpaca_client_init_zookeeper_shm(ngx_conf_t *cf){
-	ngx_str_t name;
-	name.data = (u_char*) "zookeeper_shm";
-	name.len = strlen("zookeeper_shm");
-	size_t size;
-	size = ZOOKEEPER_SHM_SIZE;
-	ngx_shm_zone_t            *shm_zone;
-	shm_zone = ngx_shared_memory_add(cf, &name, size,
-			&ngx_alpaca_client_module);
-	if (shm_zone == NULL) {
-		return NGX_ERROR;
-	}
-	shm_zone->init = ngx_alpaca_client_init_zone;
-	shm_zone->data = name.data;//TODO how to set this value
-	return NGX_OK;
-}
+//static ngx_int_t ngx_alpaca_client_init_zookeeper_shm(ngx_conf_t *cf){
+//	ngx_str_t name;
+//	name.data = (u_char*) "zookeeper_shm";
+//	name.len = strlen("zookeeper_shm");
+//	size_t size;
+//	size = ZOOKEEPER_SHM_SIZE;
+//	ngx_shm_zone_t            *shm_zone;
+//	shm_zone = ngx_shared_memory_add(cf, &name, size,
+//			&ngx_alpaca_client_module);
+//	if (shm_zone == NULL) {
+//		return NGX_ERROR;
+//	}
+//	shm_zone->init = ngx_alpaca_client_init_zone;
+//	shm_zone->data = name.data;//TODO how to set this value
+//	return NGX_OK;
+//}
 
 void get_denymessage_from_config(){
 	if(denymessage){
@@ -316,6 +364,7 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	allow_ua_empty = conf->allow_ua_empty;
 	denymessage = conf->denymessage.data;
 	denyratemessage = conf->denyratemessage.data;
+	lua_filename = conf->lua_file.data;
 
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
@@ -326,46 +375,48 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 
 	*h = ngx_alpaca_client_handler;
 
-	return ngx_alpaca_client_init_zookeeper_shm(cf);
-}
-
-static ngx_int_t
-ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
-	shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
-	push_event_num = ngx_slab_alloc(shpool, sizeof(unsigned long));
-	if(!push_event_num){
-		return NGX_ERROR;
-	}
-	policyconfig = ngx_slab_alloc(shpool, sizeof(PolicyConfig));
-	if(!policyconfig){
-		return NGX_ERROR;
-	}
-	responsemessageconfig = ngx_slab_alloc(shpool, sizeof(ResponseMessageConfig));
-	if(!responsemessageconfig){
-		return NGX_ERROR;
-	}
-	commonconfig = ngx_slab_alloc(shpool, sizeof(CommonConfig));
-	if(!commonconfig){
-		return NGX_ERROR;
-	}
-	switchconfig = ngx_slab_alloc(shpool, sizeof(SwitchConfig));
-	if(!switchconfig){
-		return NGX_ERROR;
-	}
-	get_denymessage_from_config();
-	get_denyratemessage_from_config();//need change
-
-//	int pid = fork();
-//	if(pid < 0){
-//		alpaca_log_wirte(ALPACA_ERROR, "create process fail, when inited");
-//	}
-//	else if(pid == 0){
-//		initConfigWatch(zookeeper_addr);
-//		heartbeatcycle();
-//	}
-
+	socketpair(AF_UNIX, SOCK_STREAM, 0, pipefd);
+	//return ngx_alpaca_client_init_zookeeper_shm(cf);
 	return NGX_OK;
 }
+
+//static ngx_int_t
+//ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data){
+//	shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+//	push_event_num = ngx_slab_alloc(shpool, sizeof(unsigned long));
+//	if(!push_event_num){
+//		return NGX_ERROR;
+//	}
+//	policyconfig = ngx_slab_alloc(shpool, sizeof(PolicyConfig));
+//	if(!policyconfig){
+//		return NGX_ERROR;
+//	}
+//	responsemessageconfig = ngx_slab_alloc(shpool, sizeof(ResponseMessageConfig));
+//	if(!responsemessageconfig){
+//		return NGX_ERROR;
+//	}
+//	commonconfig = ngx_slab_alloc(shpool, sizeof(CommonConfig));
+//	if(!commonconfig){
+//		return NGX_ERROR;
+//	}
+//	switchconfig = ngx_slab_alloc(shpool, sizeof(SwitchConfig));
+//	if(!switchconfig){
+//		return NGX_ERROR;
+//	}
+//	get_denymessage_from_config();
+//	get_denyratemessage_from_config();//need change
+//
+//	//	int pid = fork();
+//	//	if(pid < 0){
+//	//		alpaca_log_wirte(ALPACA_ERROR, "create process fail, when inited");
+//	//	}
+//	//	else if(pid == 0){
+//	//		initConfigWatch(zookeeper_addr);
+//	//		heartbeatcycle();
+//	//	}
+//
+//	return NGX_OK;
+//}
 
 	static void *
 ngx_alpaca_client_create_main_conf(ngx_conf_t *cf)
@@ -550,7 +601,7 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 
 	pbcf->fd = fd;
 
-	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "hupeng test process init");
+
 	initConfigWatch(zookeeper_addr);
 
 	return NGX_OK;
@@ -561,7 +612,7 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 ngx_proc_send_loop(ngx_cycle_t *cycle)
 {
 	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "hupeng test send loop");
-	heartbeatcycle();
+	//heartbeatcycle();
 	return NGX_OK;
 }
 

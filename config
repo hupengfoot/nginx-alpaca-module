@@ -3,4 +3,4 @@ PROCS_MODULES="$PROCS_MODULES ngx_proc_send_module"
 ngx_addon_name=ngx_alpaca_client_module
 HTTP_MODULES="$HTTP_MODULES ngx_alpaca_client_module"
 NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_alpaca_client_module.c $ngx_addon_dir/alpacaClient.c $ngx_addon_dir/cJSON.c $ngx_addon_dir/collectionUtils.c $ngx_addon_dir/urlencode.c $ngx_addon_dir/blockrequestqueue.c $ngx_addon_dir/md5.c $ngx_addon_dir/alpaca_memory_pool.c $ngx_addon_dir/alpaca_log.c $ngx_addon_dir/alpaca_zookeeper.c $ngx_addon_dir/alpaca_heartbeat.c $ngx_addon_dir/alpaca_get_local_ip.c"
-CORE_LIBS="$CORE_LIBS -lzookeeper_mt -lm -lcurl"
+CORE_LIBS="$CORE_LIBS -lzookeeper_mt -lm -lcurl -llua"

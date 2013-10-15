@@ -153,7 +153,7 @@ void* pushRequestThread(){
 	return NULL;
 }
 
-void startPushRequestThread(ngx_http_request_t *r){
+void startPushRequestThread(){
 	if(!pushblockthreadstart){
 		pushblockthreadstart = 1;
 		pthread_t tid;
@@ -168,13 +168,13 @@ void startPushRequestThread(ngx_http_request_t *r){
 	}
 }
 
-void init(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r){
+void init(){
 	//openAlpacaLog(aclc);
 	//getVisitId(aclc);
 	//getLocalIP();
 	//initConfigWatch(aclc, r);
 	initBlockRequestQueue();
-	startPushRequestThread(r);//TODO ensure start thread only once
+	startPushRequestThread();//TODO ensure start thread only once
 	//startHeartbeatThread(r);
 }
 

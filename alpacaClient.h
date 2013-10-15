@@ -16,6 +16,7 @@ typedef struct{
 	ngx_flag_t allow_ua_empty;
 	ngx_str_t denymessage;
 	ngx_str_t denyratemessage;
+	ngx_str_t lua_file;
 } ngx_alpaca_client_main_conf_t;
 
 
@@ -48,7 +49,7 @@ typedef struct{
 	size_t visitId_len;
 }Context;
 
-void init(ngx_alpaca_client_main_conf_t *aclc, ngx_http_request_t *r);
+void init();
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out);
 
 

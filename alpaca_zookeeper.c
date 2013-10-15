@@ -43,6 +43,7 @@ cJSON* formatListPP(List* key, int key_len);
 
 extern int config_denymessage;
 extern int config_denyratemessage;
+extern ngx_socket_t        pipefd[2];
 
 ngx_slab_pool_t* shpool;
 zhandle_t *zh;
@@ -58,7 +59,8 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 		  aclc->zookeeper_addr);//may be should use ngx_str_t
 		//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 	}else{
-		rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+		//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+		write(pipefd[0], buffer, strlen(buffer));
 		if(rc != 0){
 			alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -82,7 +84,7 @@ void initConfigWatch(u_char* zookeeper_addr){
 	//struct Stat stat;
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
-	setDefault();
+	//setDefault();
 	char buffer[ZOOKEEPERBUFSIZE];//TODO check size
 	for(i = 0; i< zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
@@ -668,7 +670,6 @@ int parsebuf(char *buf, char *key){
 	}
 }
 
-
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {
 	//struct Stat stat;
 	int i;
@@ -689,7 +690,8 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 				  aclc->zookeeper_addr);//may be should use ngx_str_t
 				//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 			}else{
-				rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+				//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+				write(pipefd[0], buffer, strlen(buffer));
 				if(rc != 0){
 					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 					/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
