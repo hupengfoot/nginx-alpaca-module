@@ -13,6 +13,9 @@
 #include <pthread.h>
 #include <curl/curl.h>
 #include <time.h>
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 #include "switchconfig.h"
 #include "responsemessageconfig.h"
@@ -43,12 +46,13 @@ extern int allow_ua_empty;
 static int pushblockthreadstart;
 static time_t expiretime;
 extern unsigned long* push_event_num;
+extern lua_State* L;
 
 void procrequest(ngx_http_request_t *r, Context *context);
 int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context);
 int isFirewallRequest(ngx_http_request_t *r);
 Context* getRequestContext(ngx_http_request_t *r);
-void handleBlockRequestIfNeeded(Context *context);
+void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r);
 int compareDate(char* forbidDate);
 int responseIfNeeded(ngx_http_request_t *r, Context *context, ngx_chain_t **out);
 void responseStatus(ngx_http_request_t *r, ngx_chain_t **out);
@@ -422,7 +426,7 @@ void procrequest(ngx_http_request_t *r, Context *context){
 	if(handleInternalRequestIfNeeded(r, context) == 0){
 		return;
 	}
-	handleBlockRequestIfNeeded(context);	
+	handleBlockRequestIfNeeded(context, r);	
 }
 
 int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context){
@@ -610,6 +614,8 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->rawUrl = r->unparsed_uri.data;
 	result->rawUrl_len = r->unparsed_uri.len;
 	result->visitId_len = getHttpParam(&result->visitId, r);//TODO rename getHttpParam
+	result->domain = r->headers_in.host->value.data;
+	result->domain_len = r->headers_in.host->value.len;
 	return result;
 }
 
@@ -626,105 +632,118 @@ int is_empty_string(char* buf, int buflen){
 	return 1;	
 }
 
-void handleBlockRequestIfNeeded(Context *context){
+void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 	if(switchconfig->enable == 1){
-		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->acceptIPAddressPrefix) == 1){
-			context->status = PASS;
-		}
-		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
-			context->status = DENY_HTTPMETHOD;
-		}
-		else if(((context->userAgent_len == 0 || context->userAgent == NULL || is_empty_string((char*)context->userAgent, context->userAgent_len)) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
-			context->status = DENY_USERAGENT;
-		}
-		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){
-			context->status = DENY_IP;
-		}
-		else if(context->visitId != NULL && contains((char*)context->visitId, policyconfig->denyVistorID, context->visitId_len)){
-			context->status = DENY_VID;
-		}
-		else{
-			if(context->visitId == NULL){
-				if(context->rawUrl != NULL && policyconfig->denyNOVisitorIDURL != NULL){
-					int i;
-					for(i = 0; i < policyconfig->denyNOVisitorIDURL->len; i++){
-						int rawUrl_len = strlen(policyconfig->denyNOVisitorIDURL->list[i].key) - 2;
-						if(strncasecmp((char*)context->rawUrl, policyconfig->denyNOVisitorIDURL->list[i].key+1, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig->denyNOVisitorIDURL->list[i].value+1,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig->denyNOVisitorIDURL->list[i].value+1, context->httpMethod_len) == 0)){
-							context->status = DENY_NOVID;
-							return;
-						}
-					}
-				}	
-				if(policyconfig->denyIPAddressRate != NULL){
-					int i;
-					for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
-						if((strlen(policyconfig->denyIPAddressRate->list[i].key) - 2) != context->clientIP_len){
-							continue;
-						}
-						if(strncmp(policyconfig->denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, context->clientIP_len) == 0){
-							if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
-								context->status = DENY_IPRATE;
-								return;
-							}
-						}
-					}
-				}
-			}
-			else{
-				if(switchconfig->blockByVid == 1){
-					if(policyconfig->denyIPVidRate != NULL){
-						int i;
-						for(i = 0; i < policyconfig->denyIPVidRate->len; i++){
-							if(strlen(policyconfig->denyIPVidRate->list[i].key.key) != context->clientIP_len || strlen(policyconfig->denyIPVidRate->list[i].key.value) != context->visitId_len){
-								continue;
-							}
-							if(strncmp(policyconfig->denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig->denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig->denyIPVidRate->list[i].key.value, (char*)context->visitId, strlen(policyconfig->denyIPVidRate->list[i].key.value)) == 0){
-
-								if(compareDate(policyconfig->denyIPVidRate->list[i].value) == 1){
-									context->status = DENY_IPVIDRATE;
-									return;
-								}
-							}
-						}	
-					}
-				}
-				else{
-					if(policyconfig->denyIPAddressRate != NULL){
-						int i;
-						for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
-							if(strlen(policyconfig->denyIPAddressRate->list[i].key)-2 != context->clientIP_len){
-								continue;
-							}
-							if(strncmp(policyconfig->denyIPAddressRate->list[i].key+1, (char*)context->clientIP, strlen(policyconfig->denyIPAddressRate->list[i].key)-2) == 0){
-
-								if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
-									context->status = DENY_IPRATE;
-									return;
-								}
-							}	
-						}
-					}
-				}
-				if(switchconfig->blockByVidOnly == 1){
-					if(policyconfig->denyVistorIDRate != NULL){
-						int i;
-						for(i = 0; i < policyconfig->denyVistorIDRate->len; i++){
-							if(strlen(policyconfig->denyVistorIDRate->list[i].key)-2 != context->visitId_len){
-								continue;
-							}
-							if(strncmp(policyconfig->denyVistorIDRate->list[i].key+1, (char*)context->visitId, strlen(policyconfig->denyVistorIDRate->list[i].key)-2) == 0){
-
-								if(compareDate(policyconfig->denyVistorIDRate->list[i].value) == 1){
-									context->status = DENY_VIDRATE;
-									return;
-								}
-							}	
-						}
-					}
-				}
-
-			}
-		}
+		lua_getglobal(L,"block");              
+		lua_pushlstring(L, context->clientIP, context->clientIP_len);
+		lua_pushlstring(L, context->userAgent, context->userAgent_len);
+		lua_pushlstring(L, context->httpMethod, context->httpMethod_len);
+		lua_pushlstring(L, context->rawUrl, context->rawUrl_len);
+		lua_pushlstring(L, context->visitId, context->visitId_len);
+		lua_pushlstring(L, context->domain, context->domain_len);
+		//lua_pushstring(L, "post");
+		int ret = lua_pcall(L,6,1,0);
+		int judge = lua_tonumber(L, 1);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "hupeng test block number %d ", judge);
+		lua_pop(L, 1);
+		
+//		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->acceptIPAddressPrefix) == 1){
+//			context->status = PASS;
+//		}
+//		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
+//			context->status = DENY_HTTPMETHOD;
+//		}
+//		else if(((context->userAgent_len == 0 || context->userAgent == NULL || is_empty_string((char*)context->userAgent, context->userAgent_len)) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
+//			context->status = DENY_USERAGENT;
+//		}
+//		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){
+//			context->status = DENY_IP;
+//		}
+//		else if(context->visitId != NULL && contains((char*)context->visitId, policyconfig->denyVistorID, context->visitId_len)){
+//			context->status = DENY_VID;
+//		}
+//		else{
+//			if(context->visitId == NULL){
+//				if(context->rawUrl != NULL && policyconfig->denyNOVisitorIDURL != NULL){
+//					int i;
+//					for(i = 0; i < policyconfig->denyNOVisitorIDURL->len; i++){
+//						int rawUrl_len = strlen(policyconfig->denyNOVisitorIDURL->list[i].key) - 2;
+//						if(strncasecmp((char*)context->rawUrl, policyconfig->denyNOVisitorIDURL->list[i].key+1, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig->denyNOVisitorIDURL->list[i].value+1,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig->denyNOVisitorIDURL->list[i].value+1, context->httpMethod_len) == 0)){
+//							context->status = DENY_NOVID;
+//							return;
+//						}
+//					}
+//				}	
+//				if(policyconfig->denyIPAddressRate != NULL){
+//					int i;
+//					for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
+//						if((strlen(policyconfig->denyIPAddressRate->list[i].key) - 2) != context->clientIP_len){
+//							continue;
+//						}
+//						if(strncmp(policyconfig->denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, context->clientIP_len) == 0){
+//							if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
+//								context->status = DENY_IPRATE;
+//								return;
+//							}
+//						}
+//					}
+//				}
+//			}
+//			else{
+//				if(switchconfig->blockByVid == 1){
+//					if(policyconfig->denyIPVidRate != NULL){
+//						int i;
+//						for(i = 0; i < policyconfig->denyIPVidRate->len; i++){
+//							if(strlen(policyconfig->denyIPVidRate->list[i].key.key) != context->clientIP_len || strlen(policyconfig->denyIPVidRate->list[i].key.value) != context->visitId_len){
+//								continue;
+//							}
+//							if(strncmp(policyconfig->denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig->denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig->denyIPVidRate->list[i].key.value, (char*)context->visitId, strlen(policyconfig->denyIPVidRate->list[i].key.value)) == 0){
+//
+//								if(compareDate(policyconfig->denyIPVidRate->list[i].value) == 1){
+//									context->status = DENY_IPVIDRATE;
+//									return;
+//								}
+//							}
+//						}	
+//					}
+//				}
+//				else{
+//					if(policyconfig->denyIPAddressRate != NULL){
+//						int i;
+//						for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
+//							if(strlen(policyconfig->denyIPAddressRate->list[i].key)-2 != context->clientIP_len){
+//								continue;
+//							}
+//							if(strncmp(policyconfig->denyIPAddressRate->list[i].key+1, (char*)context->clientIP, strlen(policyconfig->denyIPAddressRate->list[i].key)-2) == 0){
+//
+//								if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
+//									context->status = DENY_IPRATE;
+//									return;
+//								}
+//							}	
+//						}
+//					}
+//				}
+//				if(switchconfig->blockByVidOnly == 1){
+//					if(policyconfig->denyVistorIDRate != NULL){
+//						int i;
+//						for(i = 0; i < policyconfig->denyVistorIDRate->len; i++){
+//							if(strlen(policyconfig->denyVistorIDRate->list[i].key)-2 != context->visitId_len){
+//								continue;
+//							}
+//							if(strncmp(policyconfig->denyVistorIDRate->list[i].key+1, (char*)context->visitId, strlen(policyconfig->denyVistorIDRate->list[i].key)-2) == 0){
+//
+//								if(compareDate(policyconfig->denyVistorIDRate->list[i].value) == 1){
+//									context->status = DENY_VIDRATE;
+//									return;
+//								}
+//							}	
+//						}
+//					}
+//				}
+//
+//			}
+//		}
 	}
 
 }

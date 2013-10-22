@@ -60,7 +60,18 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 		//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 	}else{
 		//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-		write(pipefd[0], buffer, strlen(buffer));
+		if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
+			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+		}
+		if(write(pipefd[0], "\r\n", strlen("\r\n")) == -1){
+			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+		}
+		if(write(pipefd[0], buffer, strlen(buffer)) == -1){
+			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+		}
+		if(write(pipefd[0], "\r\r\n\n", strlen("\r\r\n\n")) == -1){
+			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+		}
 		if(rc != 0){
 			alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
@@ -691,7 +702,18 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 				//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 			}else{
 				//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-				write(pipefd[0], buffer, strlen(buffer));
+				if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
+					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+				}
+				if(write(pipefd[0], "\r\n", strlen("\r\n")) == -1){
+					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+				}
+				if(write(pipefd[0], buffer, strlen(buffer)) == -1){
+					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+				}
+				if(write(pipefd[0], "\r\r\n\n", strlen("\r\r\n\n")) == -1){
+					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+				}
 				if(rc != 0){
 					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
 					/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,

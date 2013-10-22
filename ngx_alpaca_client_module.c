@@ -241,21 +241,195 @@ ngx_module_t  ngx_alpaca_client_module = {
 	NGX_MODULE_V1_PADDING
 };
 
+void set_int(char* buf, int* value){
+	if(ngx_strcmp(buf, "true") == 0){
+		*value = 1;
+	}
+	else{
+		*value = 0;
+	}
+}
+
+void set_string(char* buf, char** value){
+	if(value){
+		char* needfree = *value;
+		char* tmp = malloc(ngx_strlen(buf) + 1);
+		ngx_memset(tmp, 0, ngx_strlen(buf) + 1);
+		ngx_memcpy(tmp, buf, ngx_strlen(buf));
+		*value = tmp;
+		free(needfree);
+	}
+	else{
+		char* tmp = malloc(strlen(buf) + 1);
+		ngx_memset(tmp, 0, ngx_strlen(buf) + 1);
+		ngx_memcpy(tmp, buf, ngx_strlen(buf));
+		*value = tmp;
+	}
+}
+
+void set_table(char* buf, char* value, ngx_event_t *ev){
+	lua_getglobal(L,"decode");              
+	lua_pushstring(L, value);
+	lua_pushstring(L, buf);
+	
+	int ret = lua_pcall(L,2,0,0);
+	if(ret){
+		ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s update fail!", value);
+	}
+}
+
+void update_zk_value(char* key, char* buf, ngx_event_t *ev){
+	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s, %s", key, buf);
+	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
+		set_int(buf, &switchconfig->enable);
+	}
+	else if(ngx_strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
+		set_int(buf, &switchconfig->pushBlockEvent);
+	}
+	else if(ngx_strcmp(key, "alpaca.filter.mount") == 0){
+		set_int(buf, &switchconfig->mount);
+	}
+	else if(ngx_strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
+		set_int(buf, &switchconfig->clientHeartbeatEnable);
+	}
+	else if(ngx_strcmp(key, "alpaca.filter.blockByVid") == 0){
+		set_int(buf, &switchconfig->blockByVid);
+		set_table(buf, "alpaca.filter.blockByVid", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
+		set_int(buf, &switchconfig->blockByVidOnly);
+		set_table(buf, "alpaca.filter.blockByVidOnly", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.client.heartbeat.interval") == 0){
+		set_int(buf, &commonconfig->clientHeartbeatInterval);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.clientStatusUrl") == 0){
+		set_string(buf, &commonconfig->clientStatusUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.clientEnableUrl") == 0){
+		set_string(buf, &commonconfig->clientEnableUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.clientDisableUrl") == 0){
+		set_string(buf, &commonconfig->clientDisableUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.clientValidateCodeUrl") == 0){
+		set_string(buf, &commonconfig->clientValidateCodeUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.serverRootUrl") == 0){
+		set_string(buf, &commonconfig->serverRoot);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.serverBlockEventNotifyUrl") == 0){
+		set_string(buf, &commonconfig->serverBlockEventUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.url.serverHeartbeatUrl") == 0){
+		set_string(buf, &commonconfig->serverHeartbeatUrl);
+	}
+	else if(ngx_strcmp(key, "alpaca.message.denyrate") == 0 && !config_denyratemessage){
+		set_string(buf, &responsemessageconfig->denyRateMessage);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddress") == 0){
+		set_table(buf, "alpaca.policy.denyIPAddress", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptIPPrefix") == 0){
+		set_table(buf, "alpaca.policy.acceptIPPrefix", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptHttpMethod") == 0){
+		set_table(buf, "alpaca.policy.acceptHttpMethod", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgent") == 0){
+		set_table(buf, "alpaca.policy.denyUserAgent", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgentPrefix") == 0){
+		set_table(buf, "alpaca.policy.denyUserAgentPrefix", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressPrefix") == 0){
+		set_table(buf, "alpaca.policy.denyIPAddressPrefix", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressRate") == 0){
+		set_table(buf, "alpaca.policy.denyIPAddressRate", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
+		set_table(buf, "alpaca.policy.denyUserAgentContainAnd", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPVidRate") == 0){
+		set_table(buf, "alpaca.policy.denyIPVidRate", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyNoVisitorIdURL.new") == 0){
+		set_table(buf, "alpaca.policy.denyNoVisitorIdURL.new", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterID") == 0){
+		set_table(buf, "alpaca.policy.denyVisterID", ev);
+	}
+	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterIDRate") == 0){
+		set_table(buf, "alpaca.policy.denyVisterIDRate", ev);
+	}
+	else{
+	}
+
+}
+
 static void ngx_pipe_handler(ngx_event_t *ev){
-
-	char buf[1024];
-	int w,h;
-	read(pipefd[1], buf, 1024);
-	lua_getglobal(L,"width");
-	lua_getglobal(L,"height");
-	w = lua_tointeger(L,-2);
-	h = lua_tointeger(L,-1);
-
-	lua_getglobal(L,"decode");               //调用lua中的函数sum
-	lua_pushinteger(L,buf) ;
-	int ret = lua_pcall(L,1,1,0) ;
-	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno,
-			"hellokitty!  %s, %d, %d", buf, w, h);
+	char tmp[4096];
+	char buf[1024 * 100];
+	char keyname[100];
+	char value[1024 * 100];
+	ngx_memset(buf, 0, 1024 * 100);
+	ngx_memset(tmp, 0, 4096);
+	ngx_memset(keyname, 0, 100);
+	ngx_memset(value, 0, 1024 * 100);
+	int p = 0;
+	int num = 1;
+	//read(pipefd[1], buf, 1024 * 100);
+	while(1){
+		num = read(pipefd[1], tmp, 4096);
+		if(num == -1){
+			alpaca_log_wirte(ALPACA_WARN, "read zookeeper info fail!");
+		}
+		//ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "hupeng test! %d", num);
+		strncpy(buf + p, tmp, num);
+		//if(ngx_strncmp(tmp, ZOOKEEPERROUTE, ngx_strlen(ZOOKEEPERROUTE)) == 0){
+		//	ngx_memcpy(keyname, tmp + ngx_strlen(ZOOKEEPERROUTE));
+		//}
+		ngx_memset(tmp, 0, 4096);
+		p = p + num;
+		if(num != 4096){
+			break;
+		}
+	}
+	char* start = NULL;
+	char* end = NULL;
+	char* point = buf;
+	while(1){
+		start = point;
+		end = strstr(start, "\r\n");
+		if(!end || (end - start) < ngx_strlen(ZOOKEEPERROUTE)){
+			break;
+		}
+		ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "ngx_memcpy %d", (end - start));
+		ngx_memcpy(keyname, start + ngx_strlen(ZOOKEEPERROUTE), (end - start) - ngx_strlen(ZOOKEEPERROUTE));
+		point = end + 2;
+		start = point;
+		end = strstr(start, "\r\r\n\n");
+		if(!end){
+			break;
+		}
+		ngx_memcpy(value, start, (end - start));
+		update_zk_value(keyname, value, ev);
+		ngx_memset(keyname, 0, 100);
+		ngx_memset(value, 0, 1024 * 100);
+		point = end + 4;
+	}
+//	int w,h;
+//	lua_getglobal(L,"width");
+//	lua_getglobal(L,"height");
+//	w = lua_tointeger(L,-2);
+//	h = lua_tointeger(L,-1);
+//
+//	lua_getglobal(L,"decode");              
+//	lua_pushinteger(L, value + 4);
+//	int ret = lua_pcall(L,1,1,0) ;
+//	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno,
+//			"hellokitty!  %s, %s, %d, %d, %d", value + 4, keyname, w, h, ret);
 }
 
 ngx_int_t    
@@ -273,6 +447,12 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	if (luaL_loadfile(L,lua_filename) || lua_pcall(L,0,0,0)) {
 		return NGX_ERROR;
 	}
+	switchconfig = malloc(sizeof(SwitchConfig));
+	commonconfig = malloc(sizeof(CommonConfig));
+	responsemessageconfig = malloc(sizeof(ResponseMessageConfig));
+	ngx_memset(switchconfig, 0, sizeof(SwitchConfig));
+	ngx_memset(commonconfig, 0, sizeof(CommonConfig));
+	ngx_memset(responsemessageconfig, 0, sizeof(ResponseMessageConfig));
 	return NGX_OK;
 }
 
@@ -288,6 +468,7 @@ ngx_alpaca_client_handler(ngx_http_request_t *r)
 	//		init(ahlf, r);
 	//		inited = 1;
 	//	}
+
 	if(ahlf->enable == 1){ //TODO reset
 		if(doFilter(r, &out) == CONTEXTSTATUSNEEDNOTRESPONSE){
 			return NGX_DECLINED;
