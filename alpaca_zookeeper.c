@@ -59,7 +59,7 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 		  aclc->zookeeper_addr);//may be should use ngx_str_t
 		//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 	}else{
-		//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+		parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
 		if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
 			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
 		}
@@ -82,6 +82,7 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 	}
 
 }
+
 void initConfigWatch(u_char* zookeeper_addr){
 	zh = zookeeper_init((char*)zookeeper_addr, watcher, 10000, 0, 0, 0);
 	if(!zh){
@@ -97,7 +98,7 @@ void initConfigWatch(u_char* zookeeper_addr){
 	int i = 0;
 	//setDefault();
 	char buffer[ZOOKEEPERBUFSIZE];//TODO check size
-	for(i = 0; i< zookeeper_key_length; i++){
+	for(i = 0; i < zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
 		memset(buffer, 0, buflen);
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
@@ -113,62 +114,62 @@ void setDefault(){
 	switchconfig->blockByVid = 0;
 	switchconfig->clientHeartbeatEnable = 0;
 	switchconfig->blockByVidOnly = 0;
-	/*set_default_string(responsemessageconfig.denyMessage, DEFAULTDENYMESSAGE);
-	  set_default_string(responsemessageconfig.denyRateMessage, DEFAULTDENYRATE);
-	  set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
-	  set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-	  set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-	  commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-	  set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
-	  set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
-	  set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
-	  set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-	  set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);*/
+	set_default_string(&responsemessageconfig->denyMessage, DEFAULTDENYMESSAGE);
+	set_default_string(&responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
+//	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
+//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+//	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
+//	set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
+//	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
+//	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
+//	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+//	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
 	if(!config_denymessage){
-		responsemessageconfig->denyMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYMESSAGE));
+		responsemessageconfig->denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 		if(responsemessageconfig->denyMessage){
 			strcpy(responsemessageconfig->denyMessage, DEFAULTDENYMESSAGE);
 		}
 	}
 	if(!config_denyratemessage){
-		responsemessageconfig->denyRateMessage = ngx_slab_alloc(shpool, sizeof(DEFAULTDENYRATE));
+		responsemessageconfig->denyRateMessage = malloc(sizeof(DEFAULTDENYRATE));
 		if(responsemessageconfig->denyRateMessage){
 			strcpy(responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
 		}
 	}
-	commonconfig->clientDisableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_DISABLE));
-	if(commonconfig->clientDisableUrl){
-		strcpy(commonconfig->clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
-	}
-	commonconfig->clientEnableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_ENABLE));
-	if(commonconfig->clientEnableUrl){
-		strcpy(commonconfig->clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-	}
-	commonconfig->clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-	commonconfig->clientStatusUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_STATUS));
-	if(commonconfig->clientStatusUrl){
-		strcpy(commonconfig->clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
-	}
-	commonconfig->clientValidateCodeUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_VALIDATECODE));
-	if(commonconfig->clientValidateCodeUrl){
-		strcpy(commonconfig->clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
-	}
-	commonconfig->serverRoot = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVERROOT));
-	if(commonconfig->serverRoot){
-		strcpy(commonconfig->serverRoot, DEFAULT_SERVERROOT);
-	}
-	commonconfig->serverBlockEventUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_BLOCK_EVENT));
-	if(commonconfig->serverBlockEventUrl){
-		strcpy(commonconfig->serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-	}
-	commonconfig->serverHeartbeatUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
-	if(commonconfig->serverHeartbeatUrl){
-		strcpy(commonconfig->serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
-	}
+//	commonconfig->clientDisableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_DISABLE));
+//	if(commonconfig->clientDisableUrl){
+//		strcpy(commonconfig->clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
+//	}
+//	commonconfig->clientEnableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_ENABLE));
+//	if(commonconfig->clientEnableUrl){
+//		strcpy(commonconfig->clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+//	}
+//	commonconfig->clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
+//	commonconfig->clientStatusUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_STATUS));
+//	if(commonconfig->clientStatusUrl){
+//		strcpy(commonconfig->clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
+//	}
+//	commonconfig->clientValidateCodeUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_VALIDATECODE));
+//	if(commonconfig->clientValidateCodeUrl){
+//		strcpy(commonconfig->clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
+//	}
+//	commonconfig->serverRoot = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVERROOT));
+//	if(commonconfig->serverRoot){
+//		strcpy(commonconfig->serverRoot, DEFAULT_SERVERROOT);
+//	}
+//	commonconfig->serverBlockEventUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_BLOCK_EVENT));
+//	if(commonconfig->serverBlockEventUrl){
+//		strcpy(commonconfig->serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+//	}
+//	commonconfig->serverHeartbeatUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
+//	if(commonconfig->serverHeartbeatUrl){
+//		strcpy(commonconfig->serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
+//	}
 }
 
 char* getCharPInstance(char* buf){
-	char* result = (char*)ngx_slab_alloc(shpool, strlen(buf) + 1);
+	char* result = (char*)malloc(strlen(buf) + 1);
 	if(result == NULL){
 		return NULL;
 	}
@@ -186,7 +187,7 @@ int setCharP(char* buf, char* volatile* key){//TODO P to Ptr
 		if(*key){
 			char *before = *key;
 			*key = tmp;
-			ngx_slab_free(shpool, before);
+			free(before);
 		}
 		else{
 			*key = tmp;
@@ -595,86 +596,47 @@ int setListListP(char* buf, ListList* volatile* key){
 }
 
 int parsebuf(char *buf, char *key){
-	if(strcmp(key, "alpaca.filter.enable") == 0){
-		return setInt(buf, &switchconfig->enable);
+	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
+		setInt(buf, &switchconfig->enable);
 	}
-	else if(strcmp(key, "alpaca.policy.denyIPAddress") == 0){
-		return setListP(buf, &policyconfig->denyIPAddress);//TODO add volatile
+	else if(ngx_strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
+		setInt(buf, &switchconfig->pushBlockEvent);
 	}
-	else if(strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
-		return setInt(buf, &switchconfig->pushBlockEvent);
+	else if(ngx_strcmp(key, "alpaca.filter.mount") == 0){
+		setInt(buf, &switchconfig->mount);
 	}
-	else if(strcmp(key, "alpaca.filter.mount") == 0){
-		return setInt(buf, &switchconfig->mount);
+	else if(ngx_strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
+		setInt(buf, &switchconfig->clientHeartbeatEnable);
 	}
-	else if(strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
-		return setInt(buf, &switchconfig->clientHeartbeatEnable);
+	else if(ngx_strcmp(key, "alpaca.filter.blockByVid") == 0){
+		setInt(buf, &switchconfig->blockByVid);
 	}
-	else if(strcmp(key, "alpaca.filter.blockByVid") == 0){
-		return setInt(buf, &switchconfig->blockByVid);
+	else if(ngx_strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
+		setInt(buf, &switchconfig->blockByVidOnly);
 	}
-	else if(strcmp(key, "alpaca.policy.acceptIPPrefix") == 0){
-		return setListP(buf, &policyconfig->acceptIPAddressPrefix);
+	else if(ngx_strcmp(key, "alpaca.client.heartbeat.interval") == 0){
+		setInt(buf, &commonconfig->clientHeartbeatInterval);
 	}
-	else if(strcmp(key, "alpaca.policy.acceptHttpMethod") == 0){
-		return setListP(buf, &policyconfig->acceptHttpMethod);
+	else if(ngx_strcmp(key, "alpaca.url.clientStatusUrl") == 0){
+		setCharP(buf, &commonconfig->clientStatusUrl);
 	}
-	else if(strcmp(key, "alpaca.policy.denyUserAgent") == 0){
-		return setListP(buf, &policyconfig->denyUserAgent);
+	else if(ngx_strcmp(key, "alpaca.url.clientEnableUrl") == 0){
+		setCharP(buf, &commonconfig->clientEnableUrl);
 	}
-	else if(strcmp(key, "alpaca.policy.denyUserAgentPrefix") == 0){
-		return setListP(buf, &policyconfig->denyUserAgentPrefix);
+	else if(ngx_strcmp(key, "alpaca.url.clientDisableUrl") == 0){
+		setCharP(buf, &commonconfig->clientDisableUrl);
 	}
-	else if(strcmp(key, "alpaca.policy.denyIPAddressPrefix") == 0){
-		return setListP(buf, &policyconfig->denyIPAddressPrefix);
+	else if(ngx_strcmp(key, "alpaca.url.clientValidateCodeUrl") == 0){
+		setCharP(buf, &commonconfig->clientValidateCodeUrl);
 	}
-	else if(strcmp(key, "alpaca.policy.denyIPAddressRate") == 0){
-		return setPairListP(buf, &(policyconfig->denyIPAddressRate));
+	else if(ngx_strcmp(key, "alpaca.url.serverRootUrl") == 0){
+		setCharP(buf, &commonconfig->serverRoot);
 	}
-	else if(strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
-		return setListListP(buf, &policyconfig->denyUserAgentContainAnd);
+	else if(ngx_strcmp(key, "alpaca.url.serverBlockEventNotifyUrl") == 0){
+		setCharP(buf, &commonconfig->serverBlockEventUrl);
 	}
-	else if(strcmp(key, "alpaca.policy.denyIPVidRate") == 0){
-		return setTripleListP(buf, &policyconfig->denyIPVidRate);
-	}
-	else if(strcmp(key, "alpaca.policy.denyNoVisitorIdURL.new") == 0){
-		return setPairListP(buf, &policyconfig->denyNOVisitorIDURL);
-	}
-	else if(strcmp(key, "alpaca.message.denyrate") == 0 && !config_denyratemessage){
-		return setCharP(buf,&responsemessageconfig->denyRateMessage);
-	}
-	else if(strcmp(key, "alpaca.url.clientStatusUrl") == 0){
-		return setCharP(buf,&commonconfig->clientStatusUrl);
-	}
-	else if(strcmp(key, "alpaca.url.clientEnableUrl") == 0){
-		return setCharP(buf,&commonconfig->clientEnableUrl);
-	}
-	else if(strcmp(key, "alpaca.url.clientDisableUrl") == 0){
-		return setCharP(buf,&commonconfig->clientDisableUrl);
-	}
-	else if(strcmp(key, "alpaca.url.clientValidateCodeUrl") == 0){
-		return setCharP(buf,&commonconfig->clientValidateCodeUrl);
-	}
-	else if(strcmp(key, "alpaca.client.heartbeat.interval") == 0){
-		return setIntDigit(buf,&commonconfig->clientHeartbeatInterval);
-	}
-	else if(strcmp(key, "alpaca.url.serverRootUrl") == 0){
-		return setCharP(buf,&commonconfig->serverRoot);
-	}
-	else if(strcmp(key, "alpaca.url.serverBlockEventNotifyUrl") == 0){
-		return setCharP(buf, &commonconfig->serverBlockEventUrl);
-	}
-	else if(strcmp(key, "alpaca.url.serverHeartbeatUrl") == 0){
-		return setCharP(buf, &commonconfig->serverHeartbeatUrl);
-	}
-	else if(strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
-		return setInt(buf, &switchconfig->blockByVidOnly);
-	}
-	else if(strcmp(key, "alpaca.policy.denyVisterID") == 0){
-		return setListP(buf, &policyconfig->denyVistorID);
-	}
-	else if(strcmp(key, "alpaca.policy.denyVisterIDRate") == 0){
-		return setPairListP(buf, &policyconfig->denyVistorIDRate);
+	else if(ngx_strcmp(key, "alpaca.url.serverHeartbeatUrl") == 0){
+		setCharP(buf, &commonconfig->serverHeartbeatUrl);
 	}
 	else{
 		return -1;
@@ -701,7 +663,7 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 				  aclc->zookeeper_addr);//may be should use ngx_str_t
 				//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 			}else{
-				//rc = parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+				parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
 				if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
 					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
 				}

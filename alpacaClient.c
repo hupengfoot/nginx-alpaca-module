@@ -639,13 +639,19 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 		lua_pushlstring(L, context->userAgent, context->userAgent_len);
 		lua_pushlstring(L, context->httpMethod, context->httpMethod_len);
 		lua_pushlstring(L, context->rawUrl, context->rawUrl_len);
-		lua_pushlstring(L, context->visitId, context->visitId_len);
+		if(context->visitId_len == 0){
+			lua_pushlstring(L, " ", 1);
+		}
+		else{
+			lua_pushlstring(L, context->visitId, context->visitId_len);
+		}
 		lua_pushlstring(L, context->domain, context->domain_len);
 		//lua_pushstring(L, "post");
 		int ret = lua_pcall(L,6,1,0);
 		int judge = lua_tonumber(L, 1);
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "hupeng test block number %d ", judge);
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "hupeng test block number %d", judge);
 		lua_pop(L, 1);
+		context->status = judge;
 		
 //		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->acceptIPAddressPrefix) == 1){
 //			context->status = PASS;
@@ -912,9 +918,10 @@ char* getResponseDenyMessage(ngx_http_request_t *r, Context *context){
 				j++;
 			}
 			if(num == 1){
-				char buf[3];
-				int compute = (int)context->status;
-				sprintf(buf, "%d%d%d", compute/100, (compute/10)%10, compute%100);
+				char buf[10];
+				ngx_memset(buf, 0, 10);
+				//int compute = context->status;
+				sprintf(buf, "%d", context->status);
 				int m = 0;
 				while(m < 3){
 					result[k] = buf[m];

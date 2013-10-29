@@ -12,3 +12,4 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i);
 void initConfigWatch(u_char* zookeeper_addr);
 cJSON* dumpStatus();
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
+void setDefault();

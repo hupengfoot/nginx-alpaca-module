@@ -48,7 +48,7 @@ typedef struct{
 	u_char* visitId;
 	size_t visitId_len;
 	u_char* domain;
-	size_t domain_len
+	size_t domain_len;
 }Context;
 
 void init();

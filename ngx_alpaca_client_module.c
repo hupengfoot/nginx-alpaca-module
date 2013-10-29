@@ -29,7 +29,6 @@ int config_denymessage = 0;
 int config_denyratemessage = 0;
 u_char* denymessage;
 u_char* denyratemessage;
-char* local_ip;
 char* visitId;
 int allow_ua_empty = 0;
 u_char* zookeeper_addr;
@@ -453,6 +452,7 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	ngx_memset(switchconfig, 0, sizeof(SwitchConfig));
 	ngx_memset(commonconfig, 0, sizeof(CommonConfig));
 	ngx_memset(responsemessageconfig, 0, sizeof(ResponseMessageConfig));
+	setDefault();
 	return NGX_OK;
 }
 
@@ -540,7 +540,7 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
 	zookeeper_addr = conf->zookeeper_addr.data;
-	local_ip = getLocalIP((char *)conf->interface.data);
+	getLocalIP((char *)conf->interface.data, local_ip);
 	getVisitId(conf);
 	allow_ua_empty = conf->allow_ua_empty;
 	denymessage = conf->denymessage.data;
@@ -782,6 +782,10 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 
 	pbcf->fd = fd;
 
+	switchconfig = malloc(sizeof(SwitchConfig));
+	commonconfig = malloc(sizeof(CommonConfig));
+	ngx_memset(switchconfig, 0, sizeof(SwitchConfig));
+	ngx_memset(commonconfig, 0, sizeof(CommonConfig));
 
 	initConfigWatch(zookeeper_addr);
 
@@ -793,7 +797,7 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 ngx_proc_send_loop(ngx_cycle_t *cycle)
 {
 	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "hupeng test send loop");
-	//heartbeatcycle();
+	heartbeatcycle(cycle);
 	return NGX_OK;
 }
 

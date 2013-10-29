@@ -105,27 +105,27 @@ function block(clientip, useragent, httpmethod, rawurl, visitid, domain)
 		return 407;
 	else
 		if(isBlank(visitid) == 1) then
-			if(rawurl ~= nil and lookupdenyNOVisitorIDURL(rawurl, httpmethod, domain) == 1) then
-				return 405;
-			end
+		--	if(rawurl ~= nil and lookupdenyNOVisitorIDURL(rawurl, httpmethod, domain) == 1) then
+		--		return 405;
+		--	end
 			if(isIpRateBlackList(clientip, domain) == 1) then
-				return 402;
+	      			return 402;
 			end
-		else
-			if(blockByVid == "true") then
-				if(isIpVidRateBlackList(clientip, visitid, domain) == 1) then
-					return 404;
-				end
-			else
-				if(isIpRateBlackList(clientip, domain) == 1) then
-					return 402;
-				end
-			end
-			if(blockByVidOnly == "true") then
-				if(isVidRateBlackList(visitid, domain) == 1) then
-					return 408;
-				end
-			end
+	--	else
+	--		if(blockByVid == "true") then
+	--			if(isIpVidRateBlackList(clientip, visitid, domain) == 1) then
+	--				return 404;
+	--			end
+	--		else
+	--			if(isIpRateBlackList(clientip, domain) == 1) then
+	--				return 402;
+	--			end
+	--		end
+	--		if(blockByVidOnly == "true") then
+	--			if(isVidRateBlackList(visitid, domain) == 1) then
+	--				return 408;
+	--			end
+	--		end
 		end
 	end
 	return -1;
@@ -245,7 +245,7 @@ end
 function isIpRateBlackList(clientip, domain)
 	for key, value in pairs(denyIPAddressRate) do
 		if(clientip == key) then
-			if(isInArray(value["tValue"]) == 1 and isExpire(value["kValue"]) == 0) then
+			if(isInArray(value["tValue"], domain) == 1 and isExpire(value["kValue"]) == 0) then
 				return 1;
 			end
 		end
@@ -253,7 +253,7 @@ function isIpRateBlackList(clientip, domain)
 	return 0;
 end
 
-function isInArray(array)
+function isInArray(array, domain)
 	for n = 1, #array do
 		if(string.lower(domain) == string.lower(array[n]) or string.lower(array[n]) == "all") then
 			return 1;
@@ -273,7 +273,7 @@ function isExpire(data)
 	tmptab.min = min;
 	tmptab.sec = sec;
 	tmptab.isdst = false;
-	if(os.time(tab) > os.time()) then
+	if(os.time(tmptab) > os.time()) then
 		return 0;
 	end
 	return 1;

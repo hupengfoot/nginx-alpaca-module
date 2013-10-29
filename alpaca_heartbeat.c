@@ -10,10 +10,10 @@
 #include "alpaca_constant.h"
 #include "alpaca_zookeeper.h"
 #include "alpaca_log.h"
+#include "alpaca_heartbeat.h"
 
 #define DEFAULT_HEARTBEAT_MAX_LENTH 8192
 
-extern char* local_ip;
 extern zhandle_t *zh;
 extern u_char* zookeeper_addr;
 char* zookeeper_key_tmp[] = ZOOKEEPERWATCHKEYS;
@@ -21,19 +21,20 @@ char* zookeeper_key_tmp[] = ZOOKEEPERWATCHKEYS;
 void sendFirewallHeartbeatRequest();
 httpParams_pool* multi_malloc_heartbeatRequest(int paramnum);
 
-void heartbeatcycle(){
+void heartbeatcycle(ngx_cycle_t *cycle){
 	while(1) {
 		if(switchconfig->clientHeartbeatEnable){
+			ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "hupeng test hello kitty!!!!");
 			sendFirewallHeartbeatRequest();
 		}
 		if(zoo_state(zh)){
 			if(is_unrecoverable(zh) == ZINVALIDSTATE){
 				zookeeper_close(zh);
 				zh = NULL;
-				alpaca_log_wirte(ALPACA_WARN, "get key from zookeeper fail! reconnected...");
+				//alpaca_log_wirte(ALPACA_WARN, "get key from zookeeper fail! reconnected...");
 				zh = zookeeper_init((char*)zookeeper_addr, watcher, 10000, 0, 0, 0);
 				if(!zh){
-					alpaca_log_wirte(ALPACA_ERROR, "init zookeeper fail");
+				//	alpaca_log_wirte(ALPACA_ERROR, "init zookeeper fail");
 				}
 				int zookeeper_key_length = sizeof(zookeeper_key_tmp)/sizeof(char*);
 				int i = 0;

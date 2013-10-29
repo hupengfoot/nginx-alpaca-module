@@ -13,7 +13,7 @@
 
 #define DEFAULT_INTERFACE_NAME "eth0" 
 
-char* getLocalIP(char* interfacename)
+void getLocalIP(char* interfacename, char* local_ip)
 {
 	char *ip;
 	char *ifn;
@@ -22,7 +22,7 @@ char* getLocalIP(char* interfacename)
 		ifn = malloc(strlen(DEFAULT_INTERFACE_NAME) + 1);
 		if(ifn == NULL){
 			alpaca_log_wirte(ALPACA_WARN, "malloc fail, when get local ip");
-			return NULL;
+			return;
 		}
 		strcpy(ifn, DEFAULT_INTERFACE_NAME);
 	}
@@ -33,16 +33,18 @@ char* getLocalIP(char* interfacename)
 	struct sockaddr_in *sin = NULL;
 	struct ifaddrs *ifa = NULL, *ifList;
 
-	if (getifaddrs(&ifList) < 0) return -1;
+	if (getifaddrs(&ifList) < 0) 
+		return;
 	for (ifa = ifList; ifa != NULL; ifa = ifa->ifa_next)
 	{
 		if(ifa->ifa_addr->sa_family == AF_INET && strcmp(ifa->ifa_name, ifn) == 0)
 		{
 			sin = (struct sockaddr_in *)ifa->ifa_addr;
 			ip = (char *)inet_ntoa(sin->sin_addr);
-			return ip;
+			strcpy(local_ip, ip);
+			return;
 		}
 	}
 	freeifaddrs(ifList);
-	return NULL;
+	return;
 }
