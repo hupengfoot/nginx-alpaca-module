@@ -23,29 +23,19 @@
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
-void setDefault();
-char* getCharPInstance(char* buf);
-int setCharP(char* buf, char* volatile* key);
-int setIntDigit(char* buf, int volatile* key);
-int getIntInstance(char* buf);
-int setInt(char* buf, int volatile* key);
-List* getListPInstance(char* buf);
-int setListP(char* buf, List* volatile* key);
-PairList* getPairListPInstance(char* buf);
-int setPairListP(char* buf, PairList* volatile* key);
-TripleList* getTripleListPInstance(char* buf);
-int setTripleListP(char* buf, TripleList* volatile* key);
-ListList* getListListPInstance(char *buf);
-int setListListP(char* buf, ListList* volatile* key);
+void set_default();
+void set_string(char* buf, char* volatile* key);
+void set_digit(char* buf, int volatile* key);
+void set_int(char* buf, int volatile* key);
 cJSON* formatCharPP(char** key, int key_len);
 cJSON* formatPairPP(Pair* key, int key_len);
 cJSON* formatListPP(List* key, int key_len);
 
 extern int config_denymessage;
 extern int config_denyratemessage;
-extern ngx_socket_t        pipefd[2];
 
-ngx_slab_pool_t* shpool;
+extern alpaca_pipe_t alpaca_pipe[ALPACA_MAX_PROCESS];
+
 zhandle_t *zh;
 char* zookeeper_key[] = ZOOKEEPERWATCHKEYS;
 
@@ -54,49 +44,42 @@ void get_zk_value(char* keyname, char* buffer, int buflen, int i){
 	rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);
 	if(rc != 0){
 		alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
-		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-		  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
-		  aclc->zookeeper_addr);//may be should use ngx_str_t
-		//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 	}else{
 		parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-		if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
-			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-		}
-		if(write(pipefd[0], "\r\n", strlen("\r\n")) == -1){
-			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-		}
-		if(write(pipefd[0], buffer, strlen(buffer)) == -1){
-			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-		}
-		if(write(pipefd[0], "\r\r\n\n", strlen("\r\r\n\n")) == -1){
-			alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+		int i = 0;
+		for(i = 0; i < alpaca_worker_processes; i++){
+			if(write(alpaca_pipe[i].pipefd[0], keyname, ngx_strlen(keyname)) == -1){
+				alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+			}
+			if(write(alpaca_pipe[i].pipefd[0], "\r\n", strlen("\r\n")) == -1){
+				alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+			}
+			if(write(alpaca_pipe[i].pipefd[0], buffer, strlen(buffer)) == -1){
+				alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+			}
+			if(write(alpaca_pipe[i].pipefd[0], "\r\r\n\n", strlen("\r\r\n\n")) == -1){
+				alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
+			}
 		}
 		if(rc != 0){
 			alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
-			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-			  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
-			  aclc->zookeeper_addr);//may be should use ngx_str_t
-			//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
 		}
 	}
 
 }
 
-void initConfigWatch(u_char* zookeeper_addr){
+void init_config_watch(u_char* zookeeper_addr){
 	zh = zookeeper_init((char*)zookeeper_addr, watcher, 10000, 0, 0, 0);
 	if(!zh){
 		alpaca_log_wirte(ALPACA_ERROR, "init zookeeper fail");
-		/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-		  "zookeeper init fail! the address is \"%V\" ",
-		  aclc->zookeeper_addr);
-		  */
 		return;
 	}
-	//struct Stat stat;
+	register_zk_value();
+}
+
+void register_zk_value(){
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
-	//setDefault();
 	char buffer[ZOOKEEPERBUFSIZE];//TODO check size
 	for(i = 0; i < zookeeper_key_length; i++){
 		int buflen = ZOOKEEPERBUFSIZE;
@@ -105,26 +88,25 @@ void initConfigWatch(u_char* zookeeper_addr){
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		get_zk_value(keyname, buffer, buflen, i);
 	}
+
 }
 
-void setDefault(){
+void set_default(){
 	switchconfig->enable = 0;
 	switchconfig->pushBlockEvent = 0;
 	switchconfig->mount = 0;
 	switchconfig->blockByVid = 0;
 	switchconfig->clientHeartbeatEnable = 0;
 	switchconfig->blockByVidOnly = 0;
-	set_default_string(&responsemessageconfig->denyMessage, DEFAULTDENYMESSAGE);
-	set_default_string(&responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
-//	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
-//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-//	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-//	set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
-//	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
-//	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
-//	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-//	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
+	//	set_default_string(commonconfig.clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
+	//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	//	set_default_string(commonconfig.clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
+	//	commonconfig.clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
+	//	set_default_string(commonconfig.clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
+	//	set_default_string(commonconfig.clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
+	//	set_default_string(commonconfig.serverRoot, DEFAULT_SERVERROOT);
+	//	set_default_string(commonconfig.serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
+	//	set_default_string(commonconfig.serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
 	if(!config_denymessage){
 		responsemessageconfig->denyMessage = malloc(sizeof(DEFAULTDENYMESSAGE));
 		if(responsemessageconfig->denyMessage){
@@ -137,51 +119,17 @@ void setDefault(){
 			strcpy(responsemessageconfig->denyRateMessage, DEFAULTDENYRATE);
 		}
 	}
-//	commonconfig->clientDisableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_DISABLE));
-//	if(commonconfig->clientDisableUrl){
-//		strcpy(commonconfig->clientDisableUrl, DEFAULT_CLIENT_URL_DISABLE);
-//	}
-//	commonconfig->clientEnableUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_ENABLE));
-//	if(commonconfig->clientEnableUrl){
-//		strcpy(commonconfig->clientEnableUrl, DEFAULT_CLIENT_URL_ENABLE);
-//	}
-//	commonconfig->clientHeartbeatInterval = DEFAULT_CLIENT_HEARTBEAT_INTERVAL;
-//	commonconfig->clientStatusUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_STATUS));
-//	if(commonconfig->clientStatusUrl){
-//		strcpy(commonconfig->clientStatusUrl, DEFAULT_CLIENT_URL_STATUS);
-//	}
-//	commonconfig->clientValidateCodeUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_CLIENT_URL_VALIDATECODE));
-//	if(commonconfig->clientValidateCodeUrl){
-//		strcpy(commonconfig->clientValidateCodeUrl, DEFAULT_CLIENT_URL_VALIDATECODE);
-//	}
-//	commonconfig->serverRoot = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVERROOT));
-//	if(commonconfig->serverRoot){
-//		strcpy(commonconfig->serverRoot, DEFAULT_SERVERROOT);
-//	}
-//	commonconfig->serverBlockEventUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_BLOCK_EVENT));
-//	if(commonconfig->serverBlockEventUrl){
-//		strcpy(commonconfig->serverBlockEventUrl, DEFAULT_SERVER_URL_BLOCK_EVENT);
-//	}
-//	commonconfig->serverHeartbeatUrl = ngx_slab_alloc(shpool, sizeof(DEFAULT_SERVER_URL_HEARTBEAT));
-//	if(commonconfig->serverHeartbeatUrl){
-//		strcpy(commonconfig->serverHeartbeatUrl, DEFAULT_SERVER_URL_HEARTBEAT);
-//	}
 }
 
-char* getCharPInstance(char* buf){
-	char* result = (char*)malloc(strlen(buf) + 1);
-	if(result == NULL){
-		return NULL;
+void set_string(char* buf, char* volatile* key){
+	char* tmp = (char*)malloc(strlen(buf) + 1);
+	if(tmp == NULL){
+		return;
 	}
-	memset(result, 0, strlen(buf) + 1);
-	strcpy(result, buf);
-	return result;
-}
-
-int setCharP(char* buf, char* volatile* key){//TODO P to Ptr
-	char *tmp = getCharPInstance(buf);
+	memset(tmp, 0, strlen(buf) + 1);
+	strcpy(tmp, buf);
 	if(!tmp){
-		return -1;
+		return;
 	}
 	else{
 		if(*key){
@@ -192,451 +140,72 @@ int setCharP(char* buf, char* volatile* key){//TODO P to Ptr
 		else{
 			*key = tmp;
 		}
-		return 0;
+		return;
 	}
 }
 
 
-int setIntDigit(char* buf, int volatile* key){
+void set_digit(char* buf, int volatile* key){
 	if(!buf){
-		return -1;
+		return;
 	}
 	int tmp = atoi(buf);
 	if(tmp > 0){
 		*key = tmp;
-		return 0;
 	}
-	return -1;
 }
 
-int getIntInstance(char* buf){
+void set_int(char* buf, int volatile* key){
 	if(strcmp(buf, "true") == 0){
-		return 1;
+		*key = 1;
 	}
 	else{
-		return 0;
+		*key = 0;
 	}
-}
-
-int setInt(char* buf, int volatile* key){
-	*key = getIntInstance(buf);
-	return 0;
-}
-
-List* getListPInstance(char* buf){
-	cJSON *json, *tmp_json;
-	char* tmp;
-	json=cJSON_Parse(buf);
-	if (!json) {
-		return NULL;
-	}
-	else
-	{
-		int itemsize = cJSON_GetArraySize(json);
-		int i = 0;
-		List* result = ngx_slab_alloc(shpool, sizeof(List));
-		if(!result){
-			cJSON_Delete(json);
-			return NULL;
-		}
-		char** list = (char**)ngx_slab_alloc(shpool, sizeof(char*) * itemsize);
-		if(!list){
-			cJSON_Delete(json);
-			ngx_slab_free(shpool, result);
-			return NULL;
-		}
-		for(i = 0; i < itemsize; i++){
-			tmp_json=cJSON_GetArrayItem(json,i);
-			if(!tmp_json){
-				list[i] = NULL;//TODO need add?
-				continue;
-			}
-			tmp = cJSON_Print(tmp_json);
-			if(!tmp){
-				list[i] = NULL;
-				continue;
-			}
-			else{
-				list[i] = (char*)ngx_slab_alloc(shpool, strlen(tmp) + 1);
-				if(!list[i]){
-					free(tmp);
-					continue;
-				}
-				memset(list[i], 0, strlen(tmp) + 1);
-				strcpy(list[i], tmp);
-				free(tmp);
-			}
-		}
-		result->list = list;
-		result->len = itemsize;
-		cJSON_Delete(json);
-		return result;
-	}
-
-}
-
-int setListP(char* buf, List* volatile *key){
-	List* tmp = getListPInstance(buf);
-	if(!tmp){
-		return -1;
-	}
-	else{	
-		if(*key){
-			List* before = *key;
-			*key = tmp;
-			int i;
-			for(i = 0; i < before->len; i++){
-				if(before->list[i]){
-					ngx_slab_free(shpool, before->list[i]);
-				}
-			}
-			ngx_slab_free(shpool, before->list);
-			ngx_slab_free(shpool, before);
-		}
-		else{
-			*key = tmp;
-		}
-	}
-	return 0;
-}
-
-PairList* getPairListPInstance(char* buf){
-	cJSON *json, *tmp_json;
-	char* tmp1;
-	char* tmp2;
-	json = cJSON_Parse(buf);
-	if (!json) {
-		return NULL;
-	}
-	else
-	{
-		int itemsize = cJSON_GetArraySize(json);
-		int i = 0;
-		PairList* result = ngx_slab_alloc(shpool, sizeof(PairList));
-		if(!result){
-			cJSON_Delete(json);
-			return NULL;
-		}
-		memset(result, 0, sizeof(PairList));
-		Pair* list = (Pair*)ngx_slab_alloc(shpool, sizeof(Pair)*itemsize);
-		if(!list){
-			cJSON_Delete(json);
-			ngx_slab_free(shpool, result);
-			return NULL;
-		}
-		memset(list, 0, sizeof(Pair)*itemsize);
-		for(i = 0; i < itemsize; i++){
-			tmp_json=cJSON_GetArrayItem(json,i);
-			if(!tmp_json){
-				continue;
-			}
-			tmp1 = cJSON_Print_key(tmp_json);
-			if(!tmp1){
-				list[i].key = NULL;
-				continue;
-			}
-			else{
-				list[i].key = ngx_slab_alloc(shpool, strlen(tmp1) + 1);
-				if(!list[i].key){
-					free(tmp1);
-					continue;
-				}
-				memset(list[i].key, 0, strlen(tmp1) + 1);
-				strcpy(list[i].key, tmp1);
-				free(tmp1);
-			}
-			tmp2 = cJSON_Print(tmp_json);
-			if(!tmp2){
-				list[i].value = NULL;
-				continue;
-			}
-			else{
-				list[i].value = ngx_slab_alloc(shpool, strlen(tmp2) + 1);
-				if(!list[i].value){
-					free(tmp2);
-					continue;
-				}
-				memset(list[i].value, 0, strlen(tmp2) + 1);
-				strcpy(list[i].value, tmp2);
-				free(tmp2);
-			}
-		}
-		result->list = list;
-		result->len = itemsize;
-		cJSON_Delete(json);
-		return result;
-	}
-}
-
-int setPairListP(char* buf, PairList* volatile* key){
-	PairList* tmp = getPairListPInstance(buf);
-	if(!tmp){
-		return -1;
-	}
-	else{	
-		if(*key){
-			PairList* before = *key;
-			*key = tmp;
-			int i;
-			for(i = 0; i < before->len; i++){
-				if(before->list[i].key){
-					ngx_slab_free(shpool, before->list[i].key);
-				}
-				if(before->list[i].value){
-					ngx_slab_free(shpool, before->list[i].value);
-				}
-			}
-			ngx_slab_free(shpool, before->list);
-			ngx_slab_free(shpool, before);
-		}
-		else{
-			*key = tmp;
-		}
-	}
-	return 0;
-}
-
-TripleList* getTripleListPInstance(char* buf){
-	cJSON *json, *tmp_json;
-	char* pair;
-	char* value;
-	json = cJSON_Parse(buf);
-	if (!json) {
-		return NULL;
-	}
-	else
-	{
-		int itemsize = cJSON_GetArraySize(json);
-		int i = 0;
-		TripleList* result = ngx_slab_alloc(shpool, sizeof(TripleList));
-		if(!result){	
-			cJSON_Delete(json);	
-			return NULL;
-		}
-		Triple* list = (Triple*)ngx_slab_alloc(shpool, sizeof(Triple)*itemsize);
-		if(list == NULL){
-			cJSON_Delete(json);	
-			ngx_slab_free(shpool, result);
-			return NULL;
-		}
-		for(i = 0; i < itemsize; i++){
-			tmp_json=cJSON_GetArrayItem(json,i);
-			if(!tmp_json){
-				continue;
-			}
-			pair = cJSON_Print_key(tmp_json);
-			if(!pair){
-				list[i].key.key = NULL;
-				list[i].key.value = NULL;
-				continue;
-			}
-			else{
-				char* pch = strtok(pair, ",\"");
-				if(!pch){
-					list[i].key.key = NULL;
-					list[i].key.value = NULL;
-					free(pair);
-					continue;
-				}
-				list[i].key.key = ngx_slab_alloc(shpool, strlen(pch) + 1);
-				if(!list[i].key.key){
-					list[i].key.key = NULL;
-					list[i].key.value = NULL;
-					free(pair);
-					continue;
-				}
-				strcpy(list[i].key.key, pch);
-				pch = strtok(NULL, ",\"");
-				if(!pch){
-					ngx_slab_free(shpool, list[i].key.key);
-					list[i].key.key = NULL;
-					list[i].key.value = NULL;
-					free(pair);
-					continue;
-				}
-				list[i].key.value = ngx_slab_alloc(shpool, strlen(pch) + 1);
-				if(!list[i].key.value){
-					free(pair);
-					continue;
-				}
-				strcpy(list[i].key.value, pch);
-				free(pair);
-			}
-			value = cJSON_Print(tmp_json);
-			if(!value){
-				list[i].value = NULL;
-				continue;
-			}
-			list[i].value = ngx_slab_alloc(shpool, strlen(value) + 1);
-			if(!list[i].value){
-				list[i].value = NULL;
-				free(value);
-				continue;
-			}
-			strcpy(list[i].value, value);
-			free(value);
-		}
-		result->list = list;
-		result->len = itemsize;
-		cJSON_Delete(json);
-		return result;
-	}
-}
-
-int setTripleListP(char* buf, TripleList* volatile* key){
-	TripleList* tmp = getTripleListPInstance(buf);
-	if(!tmp){
-		return -1;
-	}
-	else{	
-		if(*key){
-			TripleList* before = *key;
-			*key = tmp;
-			int i;
-			for(i = 0; i < before->len; i++){
-				if(before->list[i].key.key){
-					ngx_slab_free(shpool, before->list[i].key.key);
-				}
-				if(before->list[i].key.value){
-					ngx_slab_free(shpool, before->list[i].key.value);
-				}
-				if(before->list[i].value){
-					ngx_slab_free(shpool, before->list[i].value);
-				}
-			}
-			ngx_slab_free(shpool, before->list);
-			ngx_slab_free(shpool, before);
-		}
-		else{
-			*key = tmp;
-		}
-	}
-	return 0;
-}
-
-ListList* getListListPInstance(char *buf){
-	cJSON *json, *tmp_json, *sub_tmp_json;
-	char* tmp;
-	json = cJSON_Parse(buf);
-	if (!json) {
-		return NULL;
-	}
-	else
-	{
-		int itemsize = cJSON_GetArraySize(json);
-		int i = 0;
-		ListList* result = ngx_slab_alloc(shpool, sizeof(ListList));
-		if(!result){	
-			cJSON_Delete(json);	
-			return NULL;
-		}
-		List* list = (List*)ngx_slab_alloc(shpool, sizeof(List)*itemsize);
-		if(list == NULL){
-			cJSON_Delete(json);
-			ngx_slab_free(shpool, result);
-			return NULL;
-		}
-		for(i = 0; i < itemsize; i++){
-			tmp_json = cJSON_GetArrayItem(json,i);
-			if(!tmp_json){
-				continue;
-			}
-			int subitemsize = cJSON_GetArraySize(tmp_json);
-			int j;
-			list[i].list = ngx_slab_alloc(shpool, sizeof(char*) * subitemsize);
-			if(!list[i].list){
-				list[i].list = NULL;
-				continue;
-			}
-			for(j = 0; j < subitemsize; j++){
-				sub_tmp_json = cJSON_GetArrayItem(tmp_json,j);
-				tmp = cJSON_Print(sub_tmp_json);
-				list[i].list[j] = ngx_slab_alloc(shpool, strlen(tmp) + 1);
-				if(!list[i].list[j]){
-					free(tmp);
-					continue;
-				}
-				memset(list[i].list[j], 0 , strlen(tmp) + 1);
-				strcpy(list[i].list[j], tmp);
-				free(tmp);
-			}
-			list[i].len = subitemsize;
-		}
-		result->list = list;
-		result->len = itemsize;
-		cJSON_Delete(json);
-		return result;
-	}
-}
-
-int setListListP(char* buf, ListList* volatile* key){
-	ListList* tmp = getListListPInstance(buf);
-	if(!tmp){
-		return -1;
-	}
-	else{	
-		if(*key){
-			ListList* before = *key;
-			*key = tmp;
-			int i, j;
-			for(i = 0; i < before->len; i++){
-				for(j = 0; j < before->list[i].len; j++){
-					ngx_slab_free(shpool, before->list[i].list[j]);
-				}
-				ngx_slab_free(shpool, before->list[i].list);
-			}
-			ngx_slab_free(shpool, before->list);
-			ngx_slab_free(shpool, before);
-		}
-		else{
-			*key = tmp;
-		}
-	}
-	return 0;
 }
 
 int parsebuf(char *buf, char *key){
 	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
-		setInt(buf, &switchconfig->enable);
+		set_int(buf, &switchconfig->enable);
 	}
 	else if(ngx_strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
-		setInt(buf, &switchconfig->pushBlockEvent);
+		set_int(buf, &switchconfig->pushBlockEvent);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.mount") == 0){
-		setInt(buf, &switchconfig->mount);
+		set_int(buf, &switchconfig->mount);
 	}
 	else if(ngx_strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
-		setInt(buf, &switchconfig->clientHeartbeatEnable);
+		set_int(buf, &switchconfig->clientHeartbeatEnable);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVid") == 0){
-		setInt(buf, &switchconfig->blockByVid);
+		set_int(buf, &switchconfig->blockByVid);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
-		setInt(buf, &switchconfig->blockByVidOnly);
+		set_int(buf, &switchconfig->blockByVidOnly);
 	}
 	else if(ngx_strcmp(key, "alpaca.client.heartbeat.interval") == 0){
-		setInt(buf, &commonconfig->clientHeartbeatInterval);
+		set_digit(buf, &commonconfig->clientHeartbeatInterval);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.clientStatusUrl") == 0){
-		setCharP(buf, &commonconfig->clientStatusUrl);
+		set_string(buf, &commonconfig->clientStatusUrl);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.clientEnableUrl") == 0){
-		setCharP(buf, &commonconfig->clientEnableUrl);
+		set_string(buf, &commonconfig->clientEnableUrl);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.clientDisableUrl") == 0){
-		setCharP(buf, &commonconfig->clientDisableUrl);
+		set_string(buf, &commonconfig->clientDisableUrl);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.clientValidateCodeUrl") == 0){
-		setCharP(buf, &commonconfig->clientValidateCodeUrl);
+		set_string(buf, &commonconfig->clientValidateCodeUrl);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.serverRootUrl") == 0){
-		setCharP(buf, &commonconfig->serverRoot);
+		set_string(buf, &commonconfig->serverRoot);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.serverBlockEventNotifyUrl") == 0){
-		setCharP(buf, &commonconfig->serverBlockEventUrl);
+		set_string(buf, &commonconfig->serverBlockEventUrl);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.serverHeartbeatUrl") == 0){
-		setCharP(buf, &commonconfig->serverHeartbeatUrl);
+		set_string(buf, &commonconfig->serverHeartbeatUrl);
 	}
 	else{
 		return -1;
@@ -644,7 +213,6 @@ int parsebuf(char *buf, char *key){
 }
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {
-	//struct Stat stat;
 	int i;
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	char buffer[ZOOKEEPERBUFSIZE];
@@ -654,37 +222,7 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		if(strcmp(path,keyname) == 0){
-			int rc;
-			rc = zoo_get(zzh, keyname, 1, buffer, &buflen, NULL);
-			if(rc != 0){
-				alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
-				/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-				  "get key from zookeeper fail! the zookeeper address is \"%V\" ",
-				  aclc->zookeeper_addr);//may be should use ngx_str_t
-				//fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-			}else{
-				parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
-				if(write(pipefd[0], keyname, ngx_strlen(keyname)) == -1){
-					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-				}
-				if(write(pipefd[0], "\r\n", strlen("\r\n")) == -1){
-					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-				}
-				if(write(pipefd[0], buffer, strlen(buffer)) == -1){
-					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-				}
-				if(write(pipefd[0], "\r\r\n\n", strlen("\r\r\n\n")) == -1){
-					alpaca_log_wirte(ALPACA_WARN, "write zookeeper info to worker fail!");
-				}
-				if(rc != 0){
-					alpaca_log_wirte(ALPACA_WARN, "zookeeper value parse fail");
-					/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-					  "get key from zookeeper but parse fail! the zookeeper address is \"%V\" ",
-					  aclc->zookeeper_addr);//may be should use ngx_str_t
-					//	fprintf(stderr, "Error %d for %s\n", rc, __LINE__);*/
-				}
-			}
-
+			get_zk_value(keyname, buffer, buflen, i);
 			break;
 		}
 	}

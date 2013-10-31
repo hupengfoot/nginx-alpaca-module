@@ -172,31 +172,6 @@ void startPushRequestThread(){
 	}
 }
 
-void init(){
-	//openAlpacaLog(aclc);
-	//getVisitId(aclc);
-	//getLocalIP();
-	//initConfigWatch(aclc, r);
-	initBlockRequestQueue();
-	startPushRequestThread();//TODO ensure start thread only once
-	//startHeartbeatThread(r);
-}
-
-void set_default_string(char** dst, char* src){
-	if(!src){
-		return;
-	}
-	*dst = malloc(strlen(src));
-	if(!*dst){
-		alpaca_log_wirte(ALPACA_WARN, "malloc fail, when set default config ");
-		return;
-	}
-	else{
-		strcpy(*dst, src);
-	}
-}
-
-
 httpParams_pool* multi_malloc_blockEvent(Context* context){
 	int paramnum = PUSH_BLOCK_ARGS_NUM;
 	alpaca_memory_pool* pool = alpaca_memory_pool_create(POOL_SIZE);

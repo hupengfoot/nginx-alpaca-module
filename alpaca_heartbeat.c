@@ -21,7 +21,7 @@ char* zookeeper_key_tmp[] = ZOOKEEPERWATCHKEYS;
 void sendFirewallHeartbeatRequest();
 httpParams_pool* multi_malloc_heartbeatRequest(int paramnum);
 
-void heartbeatcycle(ngx_cycle_t *cycle){
+void* heartbeatcycle(ngx_cycle_t *cycle){
 	while(1) {
 		if(switchconfig->clientHeartbeatEnable){
 			ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "hupeng test hello kitty!!!!");
@@ -50,7 +50,7 @@ void heartbeatcycle(ngx_cycle_t *cycle){
 		}
 		sleep(commonconfig->clientHeartbeatInterval);
 	}
-	return;
+	return NULL;
 }
 
 //void startHeartbeatThread(ngx_http_request_t *r){
