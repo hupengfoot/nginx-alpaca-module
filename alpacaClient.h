@@ -51,6 +51,7 @@ typedef struct{
 	size_t domain_len;
 }Context;
 
+void init();
 int doFilter(ngx_http_request_t *r, ngx_chain_t **out);
 
 

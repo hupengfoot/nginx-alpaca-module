@@ -19,7 +19,7 @@ int alpaca_worker_processes;
 void get_zk_value(char* keyname, char* buffer, int buflen, int i);
 void init_config_watch(u_char* zookeeper_addr);
 void register_zk_value();
-cJSON* dumpStatus();
+char* dumpStatus();
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 void set_default();
 void set_digit(char* buf, int volatile* key);

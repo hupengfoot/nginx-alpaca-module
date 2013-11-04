@@ -3,10 +3,10 @@
 #include <ngx_http.h>
 
 #include "alpacaClient.h"
-#include "policyconfig.h"
 #include "responsemessageconfig.h"
 #include "commonconfig.h"
 #include "switchconfig.h"
+#include "policyconfig.h"
 #include "alpaca_zookeeper.h"
 #include "alpaca_log.h"
 
@@ -20,6 +20,7 @@
 #define DEFAULT_SERVER_URL_BLOCK_EVENT "/clientManagement/dianping.firewall.server.blockevent"
 #define DEFAULT_SERVER_URL_HEARTBEAT "/clientManagement/dianping.firewall.server.heartbeat"
 #define DEFAULTDENYRATE "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /><title>提示_大众点评网</title><style type=\"text/css\">html{{background:#f7f7f7;}}body{{background:#fff;color:#333;font-family:\"MicrosoftYaHei\",\"微软雅黑\",Verdana,Arial;margin:2em auto 0 auto;width:700px;padding:1em 2em;-moz-border-radius:11px;-khtml-border-radius:11px;-webkit-border-radius:11px;border-radius:11px;border:1px solid #dfdfdf;}}a{{color:#ccc;}}a:hover{{color:#d54e21;}}h1{{border-bottom:1px solid #dadada;clear:both;color:#666;margin:5px 0 5px 0;padding:0;padding-bottom:1px;}}form{{padding:8px;font-size:14px;line-height:18px;text-align:center;}}form input{{font-size:20px;font-weight:bold;}}form input.i{{width:190px;}}p{{margin-bottom:30px;}}div{{margin-bottom:8px;}}p.c{{color:#ccc;}}</style></head><body><h1 id=\"logo\" style=\"text-align: center\"><img alt=\"dianping.com\" src=\"http://i1.dpfile.com/s/img/logo.gif\" /></h1><form method=\"post\" action=\"/validcode\"><p>对不起，你访问的太快了，请输入验证码后继续浏览：</p><div><img  id=\"code\" src=\"/deny.code\" alt=\"验证码\" /></div><div> <input name=\"vode\" class=\"i\" type=\"text\" /><input type=\"submit\" value=\" 提 交 \" /><input type=\"hidden\" name=\"referer\" value=\"hupeng\" /></div><p class=\"c\">如果您(${0})经常碰到此情况，请与<a href=\"mailto:spam@dianping.com\">spam@dianping.com</a>联系，我们会尽快处理。</p></form><script type=\"text/javascript\" src=\"http://i2.dpfile.com/s/res/ga.js\"></script><script type=\"text/javascript\">var pageTracker = _gat._getTracker(\"UA-464026-1\");pageTracker._initData();pageTracker._trackPageview(\"firewall_deny_rate\");</script></body></html>"
+#define DEFAULT_DUMP_INFO_SIZE 1024*1024
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx);
 int parsebuf(char *buf, char *key);
@@ -27,9 +28,9 @@ void set_default();
 void set_string(char* buf, char* volatile* key);
 void set_digit(char* buf, int volatile* key);
 void set_int(char* buf, int volatile* key);
-cJSON* formatCharPP(char** key, int key_len);
-cJSON* formatPairPP(Pair* key, int key_len);
-cJSON* formatListPP(List* key, int key_len);
+//cJSON* formatCharPP(char** key, int key_len);
+//cJSON* formatPairPP(Pair* key, int key_len);
+//cJSON* formatListPP(List* key, int key_len);
 
 extern int config_denymessage;
 extern int config_denyratemessage;
@@ -228,110 +229,61 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 	}
 }
 
-cJSON* dumpStatus(){
-	cJSON* obj;
-	cJSON* item;
-	obj = cJSON_CreateObject();
-	item = cJSON_CreateBool(switchconfig->enable);
-	cJSON_AddItemToObject(obj, zookeeper_key[0], item);
-	/*if(switchconfig.running != NULL){
-	  item = cJSON_CreateBool(*switchconfig.running);
-	  cJSON_AddItemToObject(obj, "running", item);
-	  }*/
-	item = cJSON_CreateBool(switchconfig->pushBlockEvent);
-	cJSON_AddItemToObject(obj, zookeeper_key[2], item);
-	item = cJSON_CreateBool(switchconfig->mount);
-	cJSON_AddItemToObject(obj, zookeeper_key[3], item);
-	item = cJSON_CreateBool(switchconfig->blockByVid);
-	cJSON_AddItemToObject(obj, zookeeper_key[5], item);
-	if(policyconfig->acceptIPAddressPrefix != NULL){
-		item = formatCharPP(policyconfig->acceptIPAddressPrefix->list, policyconfig->acceptIPAddressPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[6], item);
-	}
-	if(policyconfig->acceptHttpMethod != NULL){
-		item = formatCharPP(policyconfig->acceptHttpMethod->list, policyconfig->acceptHttpMethod->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[7], item);
-	}
-	if(policyconfig->denyUserAgent != NULL){
-		item = formatCharPP(policyconfig->denyUserAgent->list, policyconfig->denyUserAgent->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[8], item);
-	}
-	if(policyconfig->denyUserAgentPrefix != NULL){
-		item = formatCharPP(policyconfig->denyUserAgentPrefix->list, policyconfig->denyUserAgentPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[9], item);
-	}
-	if(policyconfig->denyIPAddress != NULL){
-		item = formatCharPP(policyconfig->denyIPAddress->list, policyconfig->denyIPAddress->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[1], item);
-	}
-	if(policyconfig->denyIPAddressPrefix != NULL){
-		item = formatCharPP(policyconfig->denyIPAddressPrefix->list, policyconfig->denyIPAddressPrefix->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[10], item);
-	}
-	if(policyconfig->denyIPAddressRate != NULL){
-		item = formatPairPP(policyconfig->denyIPAddressRate->list, policyconfig->denyIPAddressRate->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[11], item);
-	}
-	if(policyconfig->denyUserAgentContainAnd != NULL){
-		item = formatListPP(policyconfig->denyUserAgentContainAnd->list, policyconfig->denyUserAgentContainAnd->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[12], item);
-	}
-	if(policyconfig->denyIPVidRateStr != NULL){
-		item = formatPairPP(policyconfig->denyIPVidRateStr->list, policyconfig->denyIPVidRateStr->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[13], item);
-	}
-	if(policyconfig->denyNOVisitorIDURL != NULL){
-		item = formatPairPP(policyconfig->denyNOVisitorIDURL->list, policyconfig->denyNOVisitorIDURL->len);
-		cJSON_AddItemToObject(obj, zookeeper_key[14], item);
-	}
-	if(responsemessageconfig->denyMessage != NULL){
-		item = cJSON_CreateString(responsemessageconfig->denyMessage);
-		cJSON_AddItemToObject(obj, "alpaca.message.deny", item);
-	}
-	if(responsemessageconfig->denyRateMessage != NULL){
-		item = cJSON_CreateString(responsemessageconfig->denyRateMessage);
-		cJSON_AddItemToObject(obj, zookeeper_key[20], item);
-	}
-	return obj;
+void alpaca_strcat_colon(char** dst, char* key, char* value){
+	strcat(*dst, "\"");
+	strcat(*dst, key);
+	strcat(*dst, "\"");
+	strcat(*dst, ":");
+	strcat(*dst, "\"");
+	strcat(*dst, value);
+	strcat(*dst, "\"");
 }
 
-cJSON* formatCharPP(char** key, int key_len){
-	int i;
-	cJSON *obj;
-	obj = cJSON_CreateArray();
-	cJSON *item;
-	for(i = 0; i < key_len; i++){
-		item = cJSON_CreateString(key[i]);
-		cJSON_AddItemToArray(obj, item);
-	}
-	return obj;
+void alpaca_strcat_no_colon(char** dst, char* key, char* value){
+	strcat(*dst, "\"");
+	strcat(*dst, key);
+	strcat(*dst, "\"");
+	strcat(*dst, ":");
+	strcat(*dst, value);
 }
 
-cJSON* formatPairPP(Pair* key, int key_len){
-	int i;
-	cJSON *obj;
-	obj = cJSON_CreateObject();
-	cJSON *item;
-	for(i = 0; i< key_len; i++){
-		item = cJSON_CreateString(key[i].value);
-		cJSON_AddItemToObject(obj, key[i].key, item);
+char* dumpStatus(){
+	char* alpaca_status = malloc(DEFAULT_DUMP_INFO_SIZE);
+	if(!alpaca_status){
+		return NULL; 
 	}
-	return obj;
-}
+	ngx_memset(alpaca_status, 0, DEFAULT_DUMP_INFO_SIZE);
+	strcat(alpaca_status, "{");
 
-cJSON* formatListPP(List* key, int key_len){
-	int i, j;
-	cJSON *obj;
-	obj = cJSON_CreateArray();
-	cJSON *item;
-	cJSON *list = NULL;
-	for(i = 0; i < key_len; i++){
-		for(j = 0; j < key[i].len; j++){
-			list = cJSON_CreateArray();
-			item = cJSON_CreateString(key[i].list[j]);
-			cJSON_AddItemToArray(list, item);
-		}
-		cJSON_AddItemToArray(obj,list);
-	}
-	return obj;
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.enable", switchconfig->string_enable);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.pushBlockEvent", switchconfig->string_pushBlockEvent);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.mount", switchconfig->string_mount);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.client.blockByVid", switchconfig->string_blockByVid);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptIPPrefix", policyconfig->acceptIPAddressPrefix);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptHttpMethod", policyconfig->acceptHttpMethod);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgent", policyconfig->denyUserAgent);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgentPrefix", policyconfig->denyUserAgentPrefix);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddress", policyconfig->denyIPAddress);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressPrefix", policyconfig->denyIPAddressPrefix);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressRate", policyconfig->denyIPAddressRate);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPVidRate", policyconfig->denyIPVidRate);
+	strcat(alpaca_status, ",");
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyNoVisitorIdURL.new", policyconfig->denyNOVisitorIDURL);
+//	strcat(alpaca_status, ",");
+//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.deny", responsemessageconfig->denyMessage);
+//	strcat(alpaca_status, ",");
+//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.denyrate", responsemessageconfig->denyRateMessage);
+	strcat(alpaca_status, "}");
+	return alpaca_status;
 }

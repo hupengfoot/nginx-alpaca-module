@@ -11,7 +11,6 @@
 #include <curl/curl.h>
 
 #include "alpacaClient.h"
-#include "policyconfig.h"
 #include "responsemessageconfig.h"
 #include "commonconfig.h"
 #include "switchconfig.h"
@@ -19,6 +18,7 @@
 #include "alpaca_zookeeper.h"
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
+#include "policyconfig.h"
 
 #define DEFAULT_VISIT_ID  "_hc.v"
 
@@ -29,7 +29,7 @@ u_char* denyratemessage;
 char* visitId;
 int allow_ua_empty = 0;
 u_char* zookeeper_addr;
-volatile unsigned long* push_event_num;
+volatile unsigned long push_event_num;
 lua_State* L;
 char* lua_filename;
 
@@ -249,29 +249,36 @@ void set_table(char* buf, char* value, ngx_event_t *ev){
 }
 
 void update_zk_value(char* key, char* buf, ngx_event_t *ev){
-	//ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s, %s", key, buf);
+	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s, %s", key, buf);
 	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
 		set_int(buf, &switchconfig->enable);
+		set_string(buf, &switchconfig->string_enable);
 	}
 	else if(ngx_strcmp(key,"alpaca.filter.pushBlockEvent") == 0){
 		set_int(buf, &switchconfig->pushBlockEvent);
+		set_string(buf, &switchconfig->string_pushBlockEvent);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.mount") == 0){
 		set_int(buf, &switchconfig->mount);
+		set_string(buf, &switchconfig->string_mount);
 	}
 	else if(ngx_strcmp(key, "alpaca.client.clientHeartbeatEnable") == 0){
 		set_int(buf, &switchconfig->clientHeartbeatEnable);
+		set_string(buf, &switchconfig->string_clientHeartbeatEnable);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVid") == 0){
 		set_int(buf, &switchconfig->blockByVid);
+		set_string(buf, &switchconfig->string_blockByVid);
 		set_table(buf, "alpaca.filter.blockByVid", ev);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
 		set_int(buf, &switchconfig->blockByVidOnly);
+		set_string(buf, &switchconfig->string_blockByVidOnly);
 		set_table(buf, "alpaca.filter.blockByVidOnly", ev);
 	}
 	else if(ngx_strcmp(key, "alpaca.client.heartbeat.interval") == 0){
-		set_int(buf, &commonconfig->clientHeartbeatInterval);
+		set_digit(buf, &commonconfig->clientHeartbeatInterval);
+		set_string(buf, &commonconfig->string_clientHeartbeatInterval);
 	}
 	else if(ngx_strcmp(key, "alpaca.url.clientStatusUrl") == 0){
 		set_string(buf, &commonconfig->clientStatusUrl);
@@ -299,39 +306,51 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddress") == 0){
 		set_table(buf, "alpaca.policy.denyIPAddress", ev);
+		set_string(buf, &policyconfig->denyIPAddress);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptIPPrefix") == 0){
 		set_table(buf, "alpaca.policy.acceptIPPrefix", ev);
+		set_string(buf, &policyconfig->acceptIPAddressPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptHttpMethod") == 0){
 		set_table(buf, "alpaca.policy.acceptHttpMethod", ev);
+		set_string(buf, &policyconfig->acceptHttpMethod);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgent") == 0){
 		set_table(buf, "alpaca.policy.denyUserAgent", ev);
+		set_string(buf, &policyconfig->denyUserAgent);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgentPrefix") == 0){
 		set_table(buf, "alpaca.policy.denyUserAgentPrefix", ev);
+		set_string(buf, &policyconfig->denyUserAgentPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressPrefix") == 0){
 		set_table(buf, "alpaca.policy.denyIPAddressPrefix", ev);
+		set_string(buf, &policyconfig->denyIPAddressPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressRate") == 0){
 		set_table(buf, "alpaca.policy.denyIPAddressRate", ev);
+		set_string(buf, &policyconfig->denyIPAddressRate);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
 		set_table(buf, "alpaca.policy.denyUserAgentContainAnd", ev);
+		set_string(buf, &policyconfig->denyUserAgentContainAnd);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPVidRate") == 0){
 		set_table(buf, "alpaca.policy.denyIPVidRate", ev);
+		set_string(buf, &policyconfig->denyIPVidRate);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyNoVisitorIdURL.new") == 0){
 		set_table(buf, "alpaca.policy.denyNoVisitorIdURL.new", ev);
+		set_string(buf, &policyconfig->denyNOVisitorIDURL);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterID") == 0){
 		set_table(buf, "alpaca.policy.denyVisterID", ev);
+		set_string(buf, &policyconfig->denyVistorID);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterIDRate") == 0){
 		set_table(buf, "alpaca.policy.denyVisterIDRate", ev);
+		set_string(buf, &policyconfig->denyVistorIDRate);
 	}
 	else{
 	}
@@ -403,15 +422,17 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	}
 	switchconfig = malloc(sizeof(SwitchConfig));
 	commonconfig = malloc(sizeof(CommonConfig));
+	policyconfig = malloc(sizeof(PolicyConfig));
 	responsemessageconfig = malloc(sizeof(ResponseMessageConfig));
 	ngx_memset(switchconfig, 0, sizeof(SwitchConfig));
 	ngx_memset(commonconfig, 0, sizeof(CommonConfig));
+	ngx_memset(policyconfig, 0, sizeof(PolicyConfig));
 	ngx_memset(responsemessageconfig, 0, sizeof(ResponseMessageConfig));
 	set_default();
 
 	CURL *curl;
 	curl = curl_easy_init();
-	curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:8888/");
+	curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:8999/");
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 	int err = curl_easy_perform(curl);
 	if(err == 0){

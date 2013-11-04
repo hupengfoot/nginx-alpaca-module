@@ -7,6 +7,7 @@ typedef struct CommonConfig{
 	char* volatile  serverBlockEventUrl;
 	char* volatile  serverHeartbeatUrl;
 	int volatile clientHeartbeatInterval;
+	char* volatile  string_clientHeartbeatInterval;
 }CommonConfig;
 
 CommonConfig* commonconfig;

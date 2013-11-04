@@ -21,13 +21,13 @@
 #include "responsemessageconfig.h"
 #include "commonconfig.h"
 #include "alpacaClient.h"
-#include "collectionUtils.h"
 #include "urlencode.h"
 #include "blockrequestqueue.h"
 #include "md5.h"
 #include "alpaca_log.h"
 #include "alpaca_zookeeper.h"
 #include "alpaca_constant.h"
+#include "alpaca_heartbeat.h"
 
 #define DENYMESSAGEMAXLENTH 8192
 #define DEFAULT_BLOCK_MAX_LENTH 4096
@@ -40,12 +40,11 @@
 #endif
 
 
-extern char* local_ip;
 extern char* visitId;
 extern int allow_ua_empty;
 static int pushblockthreadstart;
 static time_t expiretime;
-extern unsigned long* push_event_num;
+extern volatile unsigned long push_event_num;
 extern lua_State* L;
 
 void procrequest(ngx_http_request_t *r, Context *context);
@@ -61,7 +60,7 @@ void responseDenyRateMessage(ngx_http_request_t *r, Context *context, ngx_chain_
 char* getResponseDenyMessage(ngx_http_request_t *r, Context *context);
 char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context);
 char* getNowLogTime(char* result);
-int pairUrlEncode(Pair* httpParams, char* out, int len);
+void startPushRequestThread();
 
 char* getHttpStatus(alpaca_memory_pool* pool, enum status s){
 	char* buf = alpaca_memory_pool_malloc(pool, sizeof(char) * 4);
@@ -69,9 +68,10 @@ char* getHttpStatus(alpaca_memory_pool* pool, enum status s){
 		return NULL;
 	}
 	int compute = (int)s;
-	sprintf(buf, "%d%d%d", compute/100, (compute/10)%10, compute%100);
+	sprintf(buf, "%d", compute);
 	return buf;
 }
+
 void initBlockRequestQueue(){
 	blockRequestQueue.head = 0;
 	blockRequestQueue.tail = 0;
@@ -105,22 +105,16 @@ void sendFirewallHttpRequest(){
 	if(pairUrlEncode(httpParams->httpParams, out, PUSH_BLOCK_ARGS_NUM) == -1){
 		return;
 	}
-	//strcpy(out, "hupeng+++++++++++++++++++++++++");
 	strcpy(reqUrl, commonconfig->serverRoot);
 	strcat(reqUrl, commonconfig->serverBlockEventUrl);
 	curl = curl_easy_init();
 	curl_easy_setopt(curl, CURLOPT_URL, reqUrl);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	curl_easy_setopt(curl, CURLOPT_POST, 1);
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, out);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
-	unsigned long temp_event_num;
-	do{
-		temp_event_num = *push_event_num;
-	}while(!__sync_bool_compare_and_swap(push_event_num, temp_event_num, temp_event_num + 1));
-	//freePairP(httpParams, PUSH_BLOCK_ARGS_NUM);
+	push_event_num ++;
 
 	if(time(NULL) > expiretime){
 		while(freelist){
@@ -135,7 +129,7 @@ void sendFirewallHttpRequest(){
 		char num[129];
 		memset(push_info, 0, 1024);
 		strcpy(push_info, "have pushed ");
-		sprintf(num, "%lu", *push_event_num);
+		sprintf(num, "%lu", push_event_num);
 		strcat(push_info, num);
 		strcat(push_info, " event");
 		alpaca_log_wirte(ALPACA_INFO, push_info);
@@ -157,6 +151,11 @@ void* pushRequestThread(){
 	return NULL;
 }
 
+void init(){
+	initBlockRequestQueue();
+	startPushRequestThread();
+}
+
 void startPushRequestThread(){
 	if(!pushblockthreadstart){
 		pushblockthreadstart = 1;
@@ -165,9 +164,6 @@ void startPushRequestThread(){
 		err = pthread_create(&tid, NULL, pushRequestThread, NULL);
 		if(err){
 			alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
-			/*ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-			  "start push request thread, error num is \"%d\" ",
-			  tid);*/
 		}
 	}
 }
@@ -364,6 +360,7 @@ void changeIntToChar(char** buf, int num, int bit){
 		bit = bit / 10;
 	}
 }
+
 char* getNowLogTime(char* result){
 	time_t t;
 	struct tm *local;
@@ -412,11 +409,13 @@ int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context){
 		}
 		else if(strncmp((char*)context->rawUrl, commonconfig->clientEnableUrl, context->rawUrl_len) == 0){
 			switchconfig->enable = 1;  
+			set_string("true", &switchconfig->string_enable);
 			context->status = SHOWSTATUS;
 			return 0;
 		}
 		else if(strncmp((char*)context->rawUrl, commonconfig->clientDisableUrl, context->rawUrl_len) == 0){
 			switchconfig->enable = 0;
+			set_string("false", &switchconfig->string_enable);
 			context->status = SHOWSTATUS;
 			return 0;
 		}
@@ -584,11 +583,9 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->httpMethod = r->method_name.data;
 	result->httpMethod_len = r->method_name.len;
 	result->clientIP = get_client_ip(r, &result->clientIP_len);
-	//result->clientIP = r->connection->addr_text.data;
-	//result->clientIP_len = r->connection->addr_text.len;
 	result->rawUrl = r->unparsed_uri.data;
 	result->rawUrl_len = r->unparsed_uri.len;
-	result->visitId_len = getHttpParam(&result->visitId, r);//TODO rename getHttpParam
+	result->visitId_len = getHttpParam(&result->visitId, r);
 	result->domain = r->headers_in.host->value.data;
 	result->domain_len = r->headers_in.host->value.len;
 	return result;
@@ -621,110 +618,11 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 			lua_pushlstring(L, context->visitId, context->visitId_len);
 		}
 		lua_pushlstring(L, context->domain, context->domain_len);
-		//lua_pushstring(L, "post");
 		int ret = lua_pcall(L,6,1,0);
 		int judge = lua_tonumber(L, 1);
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "hupeng test block number %d", judge);
 		lua_pop(L, 1);
 		context->status = judge;
-		
-//		if(startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->acceptIPAddressPrefix) == 1){
-//			context->status = PASS;
-//		}
-//		else if(ignoreCaseContains((char*)context->httpMethod, policyconfig->acceptHttpMethod, context->httpMethod_len) == 0){
-//			context->status = DENY_HTTPMETHOD;
-//		}
-//		else if(((context->userAgent_len == 0 || context->userAgent == NULL || is_empty_string((char*)context->userAgent, context->userAgent_len)) && !allow_ua_empty) || ignoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgent, context->userAgent_len) || startWithIgnoreCaseContains((char*)context->userAgent, policyconfig->denyUserAgentPrefix)||ignoreCaseContainAll((char*)context->userAgent, policyconfig->denyUserAgentContainAnd)){//TODO
-//			context->status = DENY_USERAGENT;
-//		}
-//		else if(context->clientIP == NULL || contains((char*)context->clientIP, policyconfig->denyIPAddress, context->clientIP_len) || startWithIgnoreCaseContains((char*)context->clientIP, policyconfig->denyIPAddressPrefix)){
-//			context->status = DENY_IP;
-//		}
-//		else if(context->visitId != NULL && contains((char*)context->visitId, policyconfig->denyVistorID, context->visitId_len)){
-//			context->status = DENY_VID;
-//		}
-//		else{
-//			if(context->visitId == NULL){
-//				if(context->rawUrl != NULL && policyconfig->denyNOVisitorIDURL != NULL){
-//					int i;
-//					for(i = 0; i < policyconfig->denyNOVisitorIDURL->len; i++){
-//						int rawUrl_len = strlen(policyconfig->denyNOVisitorIDURL->list[i].key) - 2;
-//						if(strncasecmp((char*)context->rawUrl, policyconfig->denyNOVisitorIDURL->list[i].key+1, rawUrl_len) == 0 && (strncasecmp((char*)policyconfig->denyNOVisitorIDURL->list[i].value+1,"all",3) == 0 || strncasecmp((char*)context->httpMethod, policyconfig->denyNOVisitorIDURL->list[i].value+1, context->httpMethod_len) == 0)){
-//							context->status = DENY_NOVID;
-//							return;
-//						}
-//					}
-//				}	
-//				if(policyconfig->denyIPAddressRate != NULL){
-//					int i;
-//					for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
-//						if((strlen(policyconfig->denyIPAddressRate->list[i].key) - 2) != context->clientIP_len){
-//							continue;
-//						}
-//						if(strncmp(policyconfig->denyIPAddressRate->list[i].key + 1, (char*)context->clientIP, context->clientIP_len) == 0){
-//							if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
-//								context->status = DENY_IPRATE;
-//								return;
-//							}
-//						}
-//					}
-//				}
-//			}
-//			else{
-//				if(switchconfig->blockByVid == 1){
-//					if(policyconfig->denyIPVidRate != NULL){
-//						int i;
-//						for(i = 0; i < policyconfig->denyIPVidRate->len; i++){
-//							if(strlen(policyconfig->denyIPVidRate->list[i].key.key) != context->clientIP_len || strlen(policyconfig->denyIPVidRate->list[i].key.value) != context->visitId_len){
-//								continue;
-//							}
-//							if(strncmp(policyconfig->denyIPVidRate->list[i].key.key, (char*)context->clientIP, strlen(policyconfig->denyIPVidRate->list[i].key.key)) == 0 && strncmp(policyconfig->denyIPVidRate->list[i].key.value, (char*)context->visitId, strlen(policyconfig->denyIPVidRate->list[i].key.value)) == 0){
-//
-//								if(compareDate(policyconfig->denyIPVidRate->list[i].value) == 1){
-//									context->status = DENY_IPVIDRATE;
-//									return;
-//								}
-//							}
-//						}	
-//					}
-//				}
-//				else{
-//					if(policyconfig->denyIPAddressRate != NULL){
-//						int i;
-//						for(i = 0; i < policyconfig->denyIPAddressRate->len; i++){
-//							if(strlen(policyconfig->denyIPAddressRate->list[i].key)-2 != context->clientIP_len){
-//								continue;
-//							}
-//							if(strncmp(policyconfig->denyIPAddressRate->list[i].key+1, (char*)context->clientIP, strlen(policyconfig->denyIPAddressRate->list[i].key)-2) == 0){
-//
-//								if(compareDate(policyconfig->denyIPAddressRate->list[i].value) == 1){
-//									context->status = DENY_IPRATE;
-//									return;
-//								}
-//							}	
-//						}
-//					}
-//				}
-//				if(switchconfig->blockByVidOnly == 1){
-//					if(policyconfig->denyVistorIDRate != NULL){
-//						int i;
-//						for(i = 0; i < policyconfig->denyVistorIDRate->len; i++){
-//							if(strlen(policyconfig->denyVistorIDRate->list[i].key)-2 != context->visitId_len){
-//								continue;
-//							}
-//							if(strncmp(policyconfig->denyVistorIDRate->list[i].key+1, (char*)context->visitId, strlen(policyconfig->denyVistorIDRate->list[i].key)-2) == 0){
-//
-//								if(compareDate(policyconfig->denyVistorIDRate->list[i].value) == 1){
-//									context->status = DENY_VIDRATE;
-//									return;
-//								}
-//							}	
-//						}
-//					}
-//				}
-//
-//			}
-//		}
 	}
 
 }
@@ -793,21 +691,16 @@ int responseIfNeeded(ngx_http_request_t *r, Context *context, ngx_chain_t **out)
 }
 
 void responseStatus(ngx_http_request_t *r, ngx_chain_t **out){
-	cJSON* alpacastatus = dumpStatus();
+	char* alpacastatus = dumpStatus();
+	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "%d\n%s", strlen(alpacastatus),  alpacastatus);
 	ngx_buf_t    *b;  
 	b = ngx_calloc_buf(r->pool);  
 	if (b == NULL) {
-		cJSON_Delete(alpacastatus);	
 		return;  
 	} 
-	char *resbody = cJSON_Print(alpacastatus);
-	if(resbody == NULL){
-		cJSON_Delete(alpacastatus);//TODO
-		return;
-	}
-	char *res = ngx_pcalloc(r->pool, strlen(resbody) + 1);
-	strcpy(res, resbody);
-	free(resbody);
+	char *res = ngx_pcalloc(r->pool, strlen(alpacastatus) + 1);
+	strcpy(res, alpacastatus);
+	free(alpacastatus);
 	r->headers_out.status = NGX_HTTP_OK;
 	r->headers_out.content_length_n = strlen(res);
 	b->pos = (u_char *) res;
@@ -816,7 +709,6 @@ void responseStatus(ngx_http_request_t *r, ngx_chain_t **out){
 	b->last_buf = 1;  
 	(*out) = ngx_alloc_chain_link(r->pool);  
 	if (*out == NULL){
-		cJSON_Delete(alpacastatus);//TODO
 		return;
 	}	
 	(*out)->buf = b;  
@@ -895,7 +787,6 @@ char* getResponseDenyMessage(ngx_http_request_t *r, Context *context){
 			if(num == 1){
 				char buf[10];
 				ngx_memset(buf, 0, 10);
-				//int compute = context->status;
 				sprintf(buf, "%d", context->status);
 				int m = 0;
 				while(m < 3){

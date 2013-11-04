@@ -1,14 +1,13 @@
 
-#ifndef _POLICYCONFIG_H_
-#include "policyconfig.h"
-#define _POLICYCONFIG_H_
-#endif
-
 #include "alpaca_memory_pool.h"
 
 #define BLOCKREQUESTQUEUESIZE 2000
 #define PUSH_BLOCK_ARGS_NUM 9
 
+typedef struct{
+	char* key;
+	char* value;
+}Pair;
 
 typedef struct{
 	Pair* httpParams;
