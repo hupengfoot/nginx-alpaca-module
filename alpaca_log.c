@@ -7,7 +7,6 @@
 
 #include "alpaca_log.h"
 
-#define DEFAULT_MAX_LOG_MSG 2048
 
 static alpaca_log_t alpaca_log;
 

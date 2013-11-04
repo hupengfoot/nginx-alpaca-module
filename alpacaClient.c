@@ -29,22 +29,12 @@
 #include "alpaca_constant.h"
 #include "alpaca_heartbeat.h"
 
-#define DENYMESSAGEMAXLENTH 8192
-#define DEFAULT_BLOCK_MAX_LENTH 4096
-#define DEFAULT_CLIENT_HEARTBEAT_ENABLE 0
-#define EXPIRETIME 180
-#ifdef __x86_64__
-#define U_CHAR long
-#elif __i386__
-#define U_CHAR int
-#endif
-
 
 extern char* visitId;
 extern int allow_ua_empty;
 static int pushblockthreadstart;
 static time_t expiretime;
-extern volatile unsigned long push_event_num;
+volatile unsigned long push_event_num;
 extern lua_State* L;
 
 void procrequest(ngx_http_request_t *r, Context *context);

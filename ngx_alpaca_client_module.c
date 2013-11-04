@@ -19,8 +19,8 @@
 #include "alpaca_heartbeat.h"
 #include "alpaca_get_local_ip.h"
 #include "policyconfig.h"
+#include "alpaca_constant.h"
 
-#define DEFAULT_VISIT_ID  "_hc.v"
 
 int config_denymessage = 0;
 int config_denyratemessage = 0;
@@ -29,7 +29,6 @@ u_char* denyratemessage;
 char* visitId;
 int allow_ua_empty = 0;
 u_char* zookeeper_addr;
-volatile unsigned long push_event_num;
 lua_State* L;
 char* lua_filename;
 
@@ -37,9 +36,6 @@ typedef struct {
 	ngx_flag_t       enable;
 	ngx_uint_t       port;
 	ngx_socket_t     fd;
-	ngx_uint_t       mmap_dat_size;
-	ngx_str_t        mmap_idx;
-	ngx_str_t 	 mmap_dat;
 } ngx_proc_send_conf_t;
 
 
@@ -60,15 +56,6 @@ static ngx_int_t ngx_proc_send_loop(ngx_cycle_t *cycle);
 static void ngx_proc_send_exit_process(ngx_cycle_t *cycle);
 static void ngx_proc_send_accept(ngx_event_t *ev);
 
-
-static char  *week[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
-	"Friday", "Saturday" };
-
-static char  *months[] = { "January", "February", "March", "April", "May",
-	"June", "July", "August", "Semptember", "October",
-	"November", "December" };
-
-
 alpaca_pipe_t alpaca_pipe[ALPACA_MAX_PROCESS];
 
 static ngx_command_t ngx_proc_send_commands[] = {
@@ -86,28 +73,6 @@ static ngx_command_t ngx_proc_send_commands[] = {
 		NGX_PROC_CONF_OFFSET,
 		offsetof(ngx_proc_send_conf_t, enable),
 		NULL },
-
-	{ ngx_string("mmap_dat_size"),
-		NGX_PROC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_num_slot,
-		NGX_PROC_CONF_OFFSET,
-		offsetof(ngx_proc_send_conf_t, mmap_dat_size),
-		NULL },
-
-	{ ngx_string("mmap_dat"),
-		NGX_PROC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_PROC_CONF_OFFSET,
-		offsetof(ngx_proc_send_conf_t, mmap_dat),
-		NULL },
-
-	{ ngx_string("mmap_idx"),
-		NGX_PROC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
-		NGX_PROC_CONF_OFFSET,
-		offsetof(ngx_proc_send_conf_t, mmap_idx),
-		NULL },
-
 
 	ngx_null_command
 };
@@ -578,7 +543,6 @@ ngx_proc_send_create_conf(ngx_conf_t *cf)
 
 	pbcf->enable = NGX_CONF_UNSET;
 	pbcf->port = NGX_CONF_UNSET_UINT;
-	pbcf->mmap_dat_size = NGX_CONF_UNSET;
 
 	return pbcf;
 }
@@ -735,13 +699,6 @@ ngx_proc_send_accept(ngx_event_t *ev)
 	if (ngx_nonblocking(s) == -1) {
 		goto finish;
 	}
-
-	p = ngx_sprintf(buf, "%s, %s, %d, %d, %d:%d:%d-%s",
-			week[ngx_cached_tm->tm_wday],
-			months[ngx_cached_tm->tm_mon],
-			ngx_cached_tm->tm_mday, ngx_cached_tm->tm_year,
-			ngx_cached_tm->tm_hour, ngx_cached_tm->tm_min,
-			ngx_cached_tm->tm_sec, ngx_cached_tm->tm_zone);
 
 	ngx_write_fd(s, buf, p - buf);
 	register_zk_value();

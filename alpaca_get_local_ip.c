@@ -10,8 +10,7 @@
 #include <arpa/inet.h>
 
 #include "alpaca_log.h"
-
-#define DEFAULT_INTERFACE_NAME "eth0" 
+#include "alpaca_get_local_ip.h"
 
 void getLocalIP(char* interfacename, char* local_ip)
 {

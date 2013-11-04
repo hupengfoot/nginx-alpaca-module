@@ -4,6 +4,7 @@
 #define ALPACA_ERROR 3
 #define DEFAULT_ALPACA_LOG_LEVEL 1
 
+#define DEFAULT_MAX_LOG_MSG 2048
 
 typedef struct{
 	int log_level;

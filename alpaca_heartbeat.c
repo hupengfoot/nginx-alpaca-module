@@ -12,8 +12,6 @@
 #include "alpaca_log.h"
 #include "alpaca_heartbeat.h"
 
-#define DEFAULT_HEARTBEAT_MAX_LENTH 8192
-
 extern zhandle_t *zh;
 extern u_char* zookeeper_addr;
 char* zookeeper_key_tmp[] = ZOOKEEPERWATCHKEYS;
