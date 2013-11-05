@@ -610,7 +610,7 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 		lua_pushlstring(L, context->domain, context->domain_len);
 		int ret = lua_pcall(L,6,1,0);
 		int judge = lua_tonumber(L, 1);
-		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "hupeng test block number %d", judge);
+		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "hupeng test block number %d", judge);
 		lua_pop(L, 1);
 		context->status = judge;
 	}
@@ -682,7 +682,7 @@ int responseIfNeeded(ngx_http_request_t *r, Context *context, ngx_chain_t **out)
 
 void responseStatus(ngx_http_request_t *r, ngx_chain_t **out){
 	char* alpacastatus = dumpStatus();
-	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "%d\n%s", strlen(alpacastatus),  alpacastatus);
+	ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "%d\n%s", strlen(alpacastatus),  alpacastatus);
 	ngx_buf_t    *b;  
 	b = ngx_calloc_buf(r->pool);  
 	if (b == NULL) {

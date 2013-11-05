@@ -31,6 +31,7 @@ int allow_ua_empty = 0;
 u_char* zookeeper_addr;
 lua_State* L;
 char* lua_filename;
+int send_process_listen_port = 0;
 
 typedef struct {
 	ngx_flag_t       enable;
@@ -214,7 +215,7 @@ void set_table(char* buf, char* value, ngx_event_t *ev){
 }
 
 void update_zk_value(char* key, char* buf, ngx_event_t *ev){
-	ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s, %s", key, buf);
+	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "%s, %s", key, buf);
 	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
 		set_int(buf, &switchconfig->enable);
 		set_string(buf, &switchconfig->string_enable);
@@ -323,49 +324,60 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 }
 
 static void ngx_pipe_handler(ngx_event_t *ev){
-	char tmp[4096];
-	char buf[1024 * 100];
-	char keyname[100];
-	char value[1024 * 100];
-	ngx_memset(buf, 0, 1024 * 100);
-	ngx_memset(tmp, 0, 4096);
-	ngx_memset(keyname, 0, 100);
-	ngx_memset(value, 0, 1024 * 100);
+	char tmp[DEFAULT_PIPE_SIZE];
+	char buf[DEFAULT_ALPACA_PIPE_BUF];
+	char keyname[DEFAULT_ALPACA_KEY_MAX_LEN];
+	char value[DEFAULT_ALPACA_PIPE_BUF];
+	ngx_memset(buf, 0, DEFAULT_ALPACA_PIPE_BUF);
+	ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
+	ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
+	ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
 	int p = 0;
 	int num = 1;
 	while(1){
-		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, 4096);
+		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, DEFAULT_PIPE_SIZE);
 		if(num == -1){
 			alpaca_log_wirte(ALPACA_WARN, "read zookeeper info fail!");
+			break;
 		}
 		strncpy(buf + p, tmp, num);
-		ngx_memset(tmp, 0, 4096);
+		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 		p = p + num;
-		if(num != 4096){
+		if(num != DEFAULT_PIPE_SIZE){
+			ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 			break;
 		}
 	}
+	
+	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %s", buf);
+	
 	char* start = NULL;
 	char* end = NULL;
 	char* point = buf;
 	while(1){
 		start = point;
 		end = strstr(start, "\r\n");
-		if(!end || (end - start) < ngx_strlen(ZOOKEEPERROUTE)){
+		if(!end){
 			break;
 		}
-		ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "ngx_memcpy %d", (end - start));
+		if((end - start) < ngx_strlen(ZOOKEEPERROUTE)){
+			point = point + 2;
+			continue;
+		}
+		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
 		ngx_memcpy(keyname, start + ngx_strlen(ZOOKEEPERROUTE), (end - start) - ngx_strlen(ZOOKEEPERROUTE));
 		point = end + 2;
 		start = point;
 		end = strstr(start, "\r\r\n\n");
 		if(!end){
+			ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
 			break;
 		}
+		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
 		ngx_memcpy(value, start, (end - start));
 		update_zk_value(keyname, value, ev);
-		ngx_memset(keyname, 0, 100);
-		ngx_memset(value, 0, 1024 * 100);
+		ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
+		ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
 		point = end + 4;
 	}
 }
@@ -397,12 +409,12 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 
 	CURL *curl;
 	curl = curl_easy_init();
-	curl_easy_setopt(curl, CURLOPT_URL, "http://127.0.0.1:8999/");
+	char url[100];
+        ngx_memset(url, 0, 100);
+	sprintf(url, "%s:%d/", "http://127.0.0.1", send_process_listen_port);	
+	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 	int err = curl_easy_perform(curl);
-	if(err == 0){
-		printf("ok");
-	}
 	curl_easy_cleanup(curl);
 	return NGX_OK;
 }
@@ -574,6 +586,8 @@ ngx_proc_send_prepare(ngx_cycle_t *cycle)
 	if (pbcf->port == 0) {
 		return NGX_DECLINED;
 	}
+
+	send_process_listen_port = pbcf->port;
 
 	return NGX_OK;
 }

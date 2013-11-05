@@ -217,22 +217,32 @@ void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watche
 	}
 }
 
-void alpaca_strcat_colon(char** dst, char* key, char* value){
-	strcat(*dst, "\"");
-	strcat(*dst, key);
-	strcat(*dst, "\"");
-	strcat(*dst, ":");
-	strcat(*dst, "\"");
-	strcat(*dst, value);
-	strcat(*dst, "\"");
+void alpaca_strcat_colon(char** dst, char* key, char* value, int end){
+	if(value){
+		strcat(*dst, "\"");
+		strcat(*dst, key);
+		strcat(*dst, "\"");
+		strcat(*dst, ":");
+		strcat(*dst, "\"");
+		strcat(*dst, value);
+		strcat(*dst, "\"");
+		if(end == 0){
+			strcat(*dst, ",");
+		}
+	}
 }
 
-void alpaca_strcat_no_colon(char** dst, char* key, char* value){
-	strcat(*dst, "\"");
-	strcat(*dst, key);
-	strcat(*dst, "\"");
-	strcat(*dst, ":");
-	strcat(*dst, value);
+void alpaca_strcat_no_colon(char** dst, char* key, char* value, int end){
+	if(value){
+		strcat(*dst, "\"");
+		strcat(*dst, key);
+		strcat(*dst, "\"");
+		strcat(*dst, ":");
+		strcat(*dst, value);
+		if(end == 0){
+			strcat(*dst, ",");
+		}
+	}
 }
 
 char* dumpStatus(){
@@ -243,35 +253,23 @@ char* dumpStatus(){
 	ngx_memset(alpaca_status, 0, DEFAULT_DUMP_INFO_SIZE);
 	strcat(alpaca_status, "{");
 
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.enable", switchconfig->string_enable);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.pushBlockEvent", switchconfig->string_pushBlockEvent);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.mount", switchconfig->string_mount);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.client.blockByVid", switchconfig->string_blockByVid);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptIPPrefix", policyconfig->acceptIPAddressPrefix);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptHttpMethod", policyconfig->acceptHttpMethod);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgent", policyconfig->denyUserAgent);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgentPrefix", policyconfig->denyUserAgentPrefix);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddress", policyconfig->denyIPAddress);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressPrefix", policyconfig->denyIPAddressPrefix);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressRate", policyconfig->denyIPAddressRate);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPVidRate", policyconfig->denyIPVidRate);
-	strcat(alpaca_status, ",");
-	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyNoVisitorIdURL.new", policyconfig->denyNOVisitorIDURL);
-//	strcat(alpaca_status, ",");
-//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.deny", responsemessageconfig->denyMessage);
-//	strcat(alpaca_status, ",");
-//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.denyrate", responsemessageconfig->denyRateMessage);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.enable", switchconfig->string_enable, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.pushBlockEvent", switchconfig->string_pushBlockEvent, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.filter.mount", switchconfig->string_mount, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.client.blockByVid", switchconfig->string_blockByVid, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptIPPrefix", policyconfig->acceptIPAddressPrefix, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.acceptHttpMethod", policyconfig->acceptHttpMethod, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgent", policyconfig->denyUserAgent, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyUserAgentPrefix", policyconfig->denyUserAgentPrefix, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddress", policyconfig->denyIPAddress, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressPrefix", policyconfig->denyIPAddressPrefix, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPAddressRate", policyconfig->denyIPAddressRate, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyIPVidRate", policyconfig->denyIPVidRate, 0);
+	alpaca_strcat_no_colon(&alpaca_status, "alpaca.policy.withdomain.denyNoVisitorIdURL.new", policyconfig->denyNOVisitorIDURL, 1);
+	//	strcat(alpaca_status, ",");
+	//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.deny", responsemessageconfig->denyMessage);
+	//	strcat(alpaca_status, ",");
+	//	alpaca_strcat_colon(&alpaca_status, "alpaca.message.denyrate", responsemessageconfig->denyRateMessage);
 	strcat(alpaca_status, "}");
 	return alpaca_status;
 }

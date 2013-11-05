@@ -21,3 +21,8 @@
 #define U_CHAR int
 #endif
 
+#define DEFAULT_PIPE_SIZE 4096
+
+#define DEFAULT_ALPACA_PIPE_BUF 1024*100
+
+#define DEFAULT_ALPACA_KEY_MAX_LEN 100
