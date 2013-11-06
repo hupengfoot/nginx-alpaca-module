@@ -28,13 +28,20 @@ extern alpaca_pipe_t alpaca_pipe[ALPACA_MAX_PROCESS];
 zhandle_t *zh;
 char* zookeeper_key[] = ZOOKEEPERWATCHKEYS;
 
-void get_zk_value(char* keyname, char* buffer, int buflen, int i){
+void get_zk_value(char* keyname, int which){
 	int rc;
+	char buffer[ZOOKEEPERBUFSIZE];//TODO check size
+	int buflen;
+	ngx_memset(buffer, 0, ZOOKEEPERBUFSIZE);
+	buflen = ZOOKEEPERBUFSIZE;
+
 	rc = zoo_get(zh, keyname, 1, buffer, &buflen, NULL);
 	if(rc != 0){
 		alpaca_log_wirte(ALPACA_WARN, "zookeeper get fail");
 	}else{
-		parsebuf(buffer, zookeeper_key[i]);//TODO, add a argv
+		if(which != -1){
+			parsebuf(buffer, zookeeper_key[which]);//TODO, add a argv
+		}
 		int i = 0;
 		for(i = 0; i < alpaca_worker_processes; i++){
 			if(write(alpaca_pipe[i].pipefd[0], keyname, ngx_strlen(keyname)) == -1){
@@ -69,13 +76,10 @@ void init_config_watch(u_char* zookeeper_addr){
 void register_zk_value(){
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
 	int i = 0;
-	char buffer[ZOOKEEPERBUFSIZE];//TODO check size
 	for(i = 0; i < zookeeper_key_length; i++){
-		int buflen = ZOOKEEPERBUFSIZE;
-		memset(buffer, 0, buflen);
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
-		get_zk_value(keyname, buffer, buflen, i);
+		get_zk_value(keyname, i);
 	}
 
 }
@@ -204,14 +208,11 @@ int parsebuf(char *buf, char *key){
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {
 	int i;
 	int zookeeper_key_length = sizeof(zookeeper_key)/sizeof(char*);
-	char buffer[ZOOKEEPERBUFSIZE];
-	int buflen = ZOOKEEPERBUFSIZE;
 	for(i = 0; i < zookeeper_key_length; i++){
-		memset(buffer, 0, buflen);
 		char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key[i]) + 1];
 		sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key[i]);
 		if(strcmp(path,keyname) == 0){
-			get_zk_value(keyname, buffer, buflen, i);
+			get_zk_value(keyname, i);
 			break;
 		}
 	}

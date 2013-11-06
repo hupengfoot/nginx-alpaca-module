@@ -36,13 +36,10 @@ void* heartbeatcycle(ngx_cycle_t *cycle){
 				}
 				int zookeeper_key_length = sizeof(zookeeper_key_tmp)/sizeof(char*);
 				int i = 0;
-				char buffer[ZOOKEEPERBUFSIZE];//TODO check size
 				for(i = 0; i< zookeeper_key_length; i++){
-					int buflen = ZOOKEEPERBUFSIZE;
-					memset(buffer, 0, buflen);
 					char keyname[sizeof(ZOOKEEPERROUTE) + strlen(zookeeper_key_tmp[i]) + 1];
 					sprintf(keyname, "%s%s", ZOOKEEPERROUTE, zookeeper_key_tmp[i]);
-					get_zk_value(keyname, buffer, buflen, i);
+					get_zk_value(keyname, i);
 				}
 			}
 		}

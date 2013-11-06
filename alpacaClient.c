@@ -32,10 +32,14 @@
 
 extern char* visitId;
 extern int allow_ua_empty;
-static int pushblockthreadstart;
 static time_t expiretime;
 volatile unsigned long push_event_num;
 extern lua_State* L;
+extern int volatile denyIPAddressRateExpire;
+extern int volatile denyIPVidRateExpire;
+extern int volatile denyVisterIDRateExpire;
+extern int volatile acceptIPPrefixCount;
+extern int send_process_listen_port;
 
 void procrequest(ngx_http_request_t *r, Context *context);
 int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context);
@@ -51,6 +55,7 @@ char* getResponseDenyMessage(ngx_http_request_t *r, Context *context);
 char* getResponseDenyRateMessage(ngx_http_request_t *r, Context *context);
 char* getNowLogTime(char* result);
 void startPushRequestThread();
+void startHealthCheckThread();
 
 char* getHttpStatus(alpaca_memory_pool* pool, enum status s){
 	char* buf = alpaca_memory_pool_malloc(pool, sizeof(char) * 4);
@@ -141,20 +146,73 @@ void* pushRequestThread(){
 	return NULL;
 }
 
+void* healthCheckThread(){
+	CURL *curl;
+	char url[100];
+
+	denyIPAddressRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+	denyIPVidRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+	denyVisterIDRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+	int first_time = 0 ;
+	while(1){
+		if(denyIPAddressRateExpire < (int)time(NULL)){
+			curl = curl_easy_init();
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPAddressRate");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			int err = curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+		}
+		if(denyIPVidRateExpire < (int)time(NULL)){
+			curl = curl_easy_init();
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPVidRate");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			int err = curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+		}
+		if(denyVisterIDRateExpire < (int)time(NULL)){
+			curl = curl_easy_init();
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyVisterIDRate");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			int err = curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+		}
+		if(acceptIPPrefixCount == 0 && first_time != 0){
+			first_time ++;
+			curl = curl_easy_init();
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "acceptIPPrefix");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			int err = curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+		}
+		sleep(300);
+	}	
+}
+
 void init(){
 	initBlockRequestQueue();
 	startPushRequestThread();
+	startHealthCheckThread();
+}
+
+void startHealthCheckThread(){
+	pthread_t tid;
+	int err;
+	err = pthread_create(&tid, NULL, healthCheckThread, NULL);
+	if(err){
+		alpaca_log_wirte(ALPACA_ERROR, "start health check thread fail");
+	}
 }
 
 void startPushRequestThread(){
-	if(!pushblockthreadstart){
-		pushblockthreadstart = 1;
-		pthread_t tid;
-		int err;
-		err = pthread_create(&tid, NULL, pushRequestThread, NULL);
-		if(err){
-			alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
-		}
+	pthread_t tid;
+	int err;
+	err = pthread_create(&tid, NULL, pushRequestThread, NULL);
+	if(err){
+		alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
 	}
 }
 

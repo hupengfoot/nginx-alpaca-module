@@ -27,7 +27,6 @@ typedef struct{
 
 int alpaca_worker_processes;
 
-void get_zk_value(char* keyname, char* buffer, int buflen, int i);
 void init_config_watch(u_char* zookeeper_addr);
 void register_zk_value();
 char* dumpStatus();
@@ -36,3 +35,4 @@ void set_default();
 void set_digit(char* buf, int volatile* key);
 void set_int(char* buf, int volatile* key);
 void set_string(char* buf, char* volatile* key);
+void get_zk_value(char* keyname, int which);

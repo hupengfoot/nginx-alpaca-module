@@ -32,6 +32,10 @@ u_char* zookeeper_addr;
 lua_State* L;
 char* lua_filename;
 int send_process_listen_port = 0;
+int volatile denyIPAddressRateExpire;
+int volatile denyIPVidRateExpire;
+int volatile denyVisterIDRateExpire;
+int volatile acceptIPPrefixCount = 0;
 
 typedef struct {
 	ngx_flag_t       enable;
@@ -203,14 +207,14 @@ ngx_module_t  ngx_alpaca_client_module = {
 	NGX_MODULE_V1_PADDING
 };
 	
-void set_table(char* buf, char* value, ngx_event_t *ev){
+void set_table(char* buf, char* value, ngx_log_t* log){
 	lua_getglobal(L,"decode");              
 	lua_pushstring(L, value);
 	lua_pushstring(L, buf);
 
 	int ret = lua_pcall(L,2,0,0);
 	if(ret){
-		ngx_log_error(NGX_LOG_ERR, ev->log, ngx_errno, "%s update fail!", value);
+		ngx_log_error(NGX_LOG_ERR, log, ngx_errno, "%s update fail!", value);
 	}
 }
 
@@ -271,51 +275,55 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 		set_string(buf, &responsemessageconfig->denyRateMessage);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddress") == 0){
-		set_table(buf, "alpaca.policy.denyIPAddress", ev);
+		set_table(buf, "alpaca.policy.denyIPAddress", ev->log);
 		set_string(buf, &policyconfig->denyIPAddress);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptIPPrefix") == 0){
-		set_table(buf, "alpaca.policy.acceptIPPrefix", ev);
+		acceptIPPrefixCount++;
+		set_table(buf, "alpaca.policy.acceptIPPrefix", ev->log);
 		set_string(buf, &policyconfig->acceptIPAddressPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.acceptHttpMethod") == 0){
-		set_table(buf, "alpaca.policy.acceptHttpMethod", ev);
+		set_table(buf, "alpaca.policy.acceptHttpMethod", ev->log);
 		set_string(buf, &policyconfig->acceptHttpMethod);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgent") == 0){
-		set_table(buf, "alpaca.policy.denyUserAgent", ev);
+		set_table(buf, "alpaca.policy.denyUserAgent", ev->log);
 		set_string(buf, &policyconfig->denyUserAgent);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyUserAgentPrefix") == 0){
-		set_table(buf, "alpaca.policy.denyUserAgentPrefix", ev);
+		set_table(buf, "alpaca.policy.denyUserAgentPrefix", ev->log);
 		set_string(buf, &policyconfig->denyUserAgentPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressPrefix") == 0){
-		set_table(buf, "alpaca.policy.denyIPAddressPrefix", ev);
+		set_table(buf, "alpaca.policy.denyIPAddressPrefix", ev->log);
 		set_string(buf, &policyconfig->denyIPAddressPrefix);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPAddressRate") == 0){
-		set_table(buf, "alpaca.policy.denyIPAddressRate", ev);
+		denyIPAddressRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+		set_table(buf, "alpaca.policy.denyIPAddressRate", ev->log);
 		set_string(buf, &policyconfig->denyIPAddressRate);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.denyUserAgentContainAnd") == 0){
-		set_table(buf, "alpaca.policy.denyUserAgentContainAnd", ev);
+		set_table(buf, "alpaca.policy.denyUserAgentContainAnd", ev->log);
 		set_string(buf, &policyconfig->denyUserAgentContainAnd);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyIPVidRate") == 0){
-		set_table(buf, "alpaca.policy.denyIPVidRate", ev);
+		denyIPVidRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+		set_table(buf, "alpaca.policy.denyIPVidRate", ev->log);
 		set_string(buf, &policyconfig->denyIPVidRate);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyNoVisitorIdURL.new") == 0){
-		set_table(buf, "alpaca.policy.denyNoVisitorIdURL.new", ev);
+		set_table(buf, "alpaca.policy.denyNoVisitorIdURL.new", ev->log);
 		set_string(buf, &policyconfig->denyNOVisitorIDURL);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterID") == 0){
-		set_table(buf, "alpaca.policy.denyVisterID", ev);
+		set_table(buf, "alpaca.policy.denyVisterID", ev->log);
 		set_string(buf, &policyconfig->denyVistorID);
 	}
 	else if(ngx_strcmp(key, "alpaca.policy.withdomain.denyVisterIDRate") == 0){
-		set_table(buf, "alpaca.policy.denyVisterIDRate", ev);
+		denyVisterIDRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
+		set_table(buf, "alpaca.policy.denyVisterIDRate", ev->log);
 		set_string(buf, &policyconfig->denyVistorIDRate);
 	}
 	else{
@@ -342,9 +350,9 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		}
 		strncpy(buf + p, tmp, num);
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
+		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 		p = p + num;
 		if(num != DEFAULT_PIPE_SIZE){
-			ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 			break;
 		}
 	}
@@ -397,6 +405,8 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	if (luaL_loadfile(L,lua_filename) || lua_pcall(L,0,0,0)) {
 		return NGX_ERROR;
 	}
+
+
 	switchconfig = malloc(sizeof(SwitchConfig));
 	commonconfig = malloc(sizeof(CommonConfig));
 	policyconfig = malloc(sizeof(PolicyConfig));
@@ -407,6 +417,9 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	ngx_memset(responsemessageconfig, 0, sizeof(ResponseMessageConfig));
 	set_default();
 
+	set_table("{\"post\":[\"all\"],\"get\":[\"all\"]}", "alpaca.policy.acceptHttpMethod", cycle->log);
+	set_string("{\"post\":[\"all\"],\"get\":[\"all\"]}", &policyconfig->acceptHttpMethod);
+	
 	CURL *curl;
 	curl = curl_easy_init();
 	char url[100];
@@ -703,6 +716,10 @@ ngx_proc_send_accept(ngx_event_t *ev)
 	socklen_t          socklen;
 	ngx_socket_t       s;
 	ngx_connection_t  *lc;
+	char command[4096];
+	char keyname[200];
+	ngx_memset(command, 0, 4096);
+	ngx_memset(keyname, 0, 200);
 
 	lc = ev->data;
 	s = accept(lc->fd, (struct sockaddr *) sa, &socklen);
@@ -713,9 +730,34 @@ ngx_proc_send_accept(ngx_event_t *ev)
 	if (ngx_nonblocking(s) == -1) {
 		goto finish;
 	}
-
-	ngx_write_fd(s, buf, p - buf);
-	register_zk_value();
+	int len = read(s, command, 4096);
+	ngx_log_error(NGX_LOG_INFO, ev->log, 0, "pipe command %d, %s", len, command);
+	char* start;
+	char* end;
+	start = strstr(command, "/");
+	if(!start){
+		return;
+	}
+	end = strstr(start, " ");
+	if(!end){
+		return;
+	}
+	ngx_memcpy(keyname, start, (int)end - (int)start);
+	if(ngx_memcmp(keyname, "/", 1) == 0){
+		register_zk_value();
+	}
+	else if(ngx_memcmp(keyname, "/denyIPAddressRate", ngx_strlen("/denyIPAddressRate")) == 0){
+		get_zk_value(keyname, -1);
+	}
+	else if(ngx_memcmp(keyname, "/denyIPVidRate", ngx_strlen("/denyIPVidRate")) == 0){
+		get_zk_value(keyname, -1);
+	}
+	else if(ngx_memcmp(keyname, "/denyVisterIDRate", ngx_strlen("/denyVisterIDRate")) == 0){
+		get_zk_value(keyname, -1);
+	}
+	else if(ngx_memcmp(keyname, "/acceptIPPrefix", ngx_strlen("/acceptIPPrefix")) == 0){
+		get_zk_value(keyname, -1);
+	}
 
 finish:
 	ngx_close_socket(s);
