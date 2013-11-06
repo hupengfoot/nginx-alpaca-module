@@ -392,8 +392,10 @@ void ngx_pipe_handler(ngx_event_t *ev){
 
 ngx_int_t    
 ngx_alpaca_init_process(ngx_cycle_t *cycle){
+	void (*ptr)(ngx_event_t* ev);
+	ptr = ngx_pipe_handler;
 	if (ngx_add_channel_event(cycle, alpaca_pipe[ngx_process_slot].pipefd[1], NGX_READ_EVENT,
-				&ngx_pipe_handler)
+				ptr)
 			== NGX_ERROR)
 	{
 		/* fatal */
@@ -689,7 +691,9 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 ngx_proc_send_loop(ngx_cycle_t *cycle)
 {
 	pthread_t tid;
-	int err1 = pthread_create(&tid, NULL, &heartbeatcycle, cycle);
+	void* (*ptr)(ngx_cycle_t *cycle);
+	ptr = heartbeatcycle;
+	int err1 = pthread_create(&tid, NULL, ptr, cycle);
 	if(err1){
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "create heartbeatcycle thread fail!" );
 	}

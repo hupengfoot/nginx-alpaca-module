@@ -201,7 +201,9 @@ void init(){
 void startHealthCheckThread(){
 	pthread_t tid;
 	int err;
-	err = pthread_create(&tid, NULL, &healthCheckThread, NULL);
+	void* (*ptr)();
+	ptr = healthCheckThread;
+	err = pthread_create(&tid, NULL, ptr, NULL);
 	if(err){
 		alpaca_log_wirte(ALPACA_ERROR, "start health check thread fail");
 	}
@@ -210,7 +212,9 @@ void startHealthCheckThread(){
 void startPushRequestThread(){
 	pthread_t tid;
 	int err;
-	err = pthread_create(&tid, NULL, &pushRequestThread, NULL);
+	void* (*ptr)();
+	ptr = pushRequestThread;
+	err = pthread_create(&tid, NULL, ptr, NULL);
 	if(err){
 		alpaca_log_wirte(ALPACA_ERROR, "start push request thread fail");
 	}
