@@ -331,7 +331,7 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 
 }
 
-void ngx_pipe_handler(ngx_event_t *ev){
+static void ngx_pipe_handler(ngx_event_t *ev){
 	char tmp[DEFAULT_PIPE_SIZE];
 	char buf[DEFAULT_ALPACA_PIPE_BUF];
 	char keyname[DEFAULT_ALPACA_KEY_MAX_LEN];
@@ -392,10 +392,8 @@ void ngx_pipe_handler(ngx_event_t *ev){
 
 ngx_int_t    
 ngx_alpaca_init_process(ngx_cycle_t *cycle){
-	ngx_event_handler_pt ptr;
-	ptr = ngx_pipe_handler;
 	if (ngx_add_channel_event(cycle, alpaca_pipe[ngx_process_slot].pipefd[1], NGX_READ_EVENT,
-				ptr)
+				ngx_pipe_handler)
 			== NGX_ERROR)
 	{
 		/* fatal */
