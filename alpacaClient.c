@@ -10,7 +10,6 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <curl/curl.h>
 #include <time.h>
 #include <lua.h>
@@ -131,7 +130,7 @@ void sendFirewallHttpRequest(){
 	}
 }
 
-void* pushRequestThread(){
+void* pushRequestThread(void *arg){
 	while(1) {
 		int needSleep = 1;
 		if(isBlockQueueEmpty() == 0){
@@ -146,7 +145,7 @@ void* pushRequestThread(){
 	return NULL;
 }
 
-void* healthCheckThread(){
+void* healthCheckThread(void *arg){
 	CURL *curl;
 	char url[100];
 
@@ -201,7 +200,7 @@ void init(){
 void startHealthCheckThread(){
 	pthread_t tid;
 	int err;
-	void* (*ptr)();
+	void* (*ptr)(void *arg);
 	ptr = healthCheckThread;
 	err = pthread_create(&tid, NULL, ptr, NULL);
 	if(err){
@@ -212,7 +211,7 @@ void startHealthCheckThread(){
 void startPushRequestThread(){
 	pthread_t tid;
 	int err;
-	void* (*ptr)();
+	void* (*ptr)(void *arg);
 	ptr = pushRequestThread;
 	err = pthread_create(&tid, NULL, ptr, NULL);
 	if(err){
