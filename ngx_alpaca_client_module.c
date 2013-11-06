@@ -331,7 +331,7 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 
 }
 
-static void ngx_pipe_handler(ngx_event_t *ev){
+void ngx_pipe_handler(ngx_event_t *ev){
 	char tmp[DEFAULT_PIPE_SIZE];
 	char buf[DEFAULT_ALPACA_PIPE_BUF];
 	char keyname[DEFAULT_ALPACA_KEY_MAX_LEN];
@@ -368,7 +368,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		if(!end){
 			break;
 		}
-		if(((long)end - (long)start) < ngx_strlen(ZOOKEEPERROUTE)){
+		if(((unsigned long)end - (unsigned long)start) < ngx_strlen(ZOOKEEPERROUTE)){
 			point = point + 2;
 			continue;
 		}
@@ -393,7 +393,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 ngx_int_t    
 ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	if (ngx_add_channel_event(cycle, alpaca_pipe[ngx_process_slot].pipefd[1], NGX_READ_EVENT,
-				ngx_pipe_handler)
+				&ngx_pipe_handler)
 			== NGX_ERROR)
 	{
 		/* fatal */
@@ -483,7 +483,7 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 		denyratemessage = conf->denyratemessage.data;
 		config_denyratemessage = 1;
 	}
-	lua_filename = conf->lua_file.data;
+	lua_filename = (char*)conf->lua_file.data;
 
 	alpaca_log_open((char*)conf->log.data, (char*)conf->level.data);
 
@@ -689,7 +689,7 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 ngx_proc_send_loop(ngx_cycle_t *cycle)
 {
 	pthread_t tid;
-	int err1 = pthread_create(&tid, NULL, heartbeatcycle, cycle);
+	int err1 = pthread_create(&tid, NULL, &heartbeatcycle, cycle);
 	if(err1){
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "create heartbeatcycle thread fail!" );
 	}
