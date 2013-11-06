@@ -239,12 +239,12 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVid") == 0){
 		set_int(buf, &switchconfig->blockByVid);
 		set_string(buf, &switchconfig->string_blockByVid);
-		set_table(buf, "alpaca.filter.blockByVid", ev);
+		set_table(buf, "alpaca.filter.blockByVid", ev->log);
 	}
 	else if(ngx_strcmp(key, "alpaca.filter.blockByVidOnly") == 0){
 		set_int(buf, &switchconfig->blockByVidOnly);
 		set_string(buf, &switchconfig->string_blockByVidOnly);
-		set_table(buf, "alpaca.filter.blockByVidOnly", ev);
+		set_table(buf, "alpaca.filter.blockByVidOnly", ev->log);
 	}
 	else if(ngx_strcmp(key, "alpaca.client.heartbeat.interval") == 0){
 		set_digit(buf, &commonconfig->clientHeartbeatInterval);
@@ -368,7 +368,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		if(!end){
 			break;
 		}
-		if((end - start) < ngx_strlen(ZOOKEEPERROUTE)){
+		if(((long)end - (long)start) < ngx_strlen(ZOOKEEPERROUTE)){
 			point = point + 2;
 			continue;
 		}
@@ -427,7 +427,7 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	sprintf(url, "%s:%d/", "http://127.0.0.1", send_process_listen_port);	
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-	int err = curl_easy_perform(curl);
+	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
 	return NGX_OK;
 }
@@ -712,7 +712,7 @@ ngx_proc_send_exit_process(ngx_cycle_t *cycle)
 	static void
 ngx_proc_send_accept(ngx_event_t *ev)
 {
-	u_char             sa[NGX_SOCKADDRLEN], buf[256], *p;
+	u_char             sa[NGX_SOCKADDRLEN];
 	socklen_t          socklen;
 	ngx_socket_t       s;
 	ngx_connection_t  *lc;
@@ -742,7 +742,7 @@ ngx_proc_send_accept(ngx_event_t *ev)
 	if(!end){
 		return;
 	}
-	ngx_memcpy(keyname, start, (int)end - (int)start);
+	ngx_memcpy(keyname, start, (long)end - (long)start);
 	if(ngx_memcmp(keyname, "/", 1) == 0){
 		register_zk_value();
 	}
