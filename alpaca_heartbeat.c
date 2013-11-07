@@ -4,7 +4,6 @@
 
 #include "switchconfig.h"
 #include "commonconfig.h"
-#include "blockrequestqueue.h"
 #include "urlencode.h"
 #include "md5.h"
 #include "alpaca_constant.h"

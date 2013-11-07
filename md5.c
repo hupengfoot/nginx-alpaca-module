@@ -1,4 +1,5 @@
 #include <ngx_core.h>
+#include <openssl/md5.h>
 
 #include "alpaca_memory_pool.h"
 #include "md5.h"

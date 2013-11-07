@@ -203,6 +203,7 @@ int parsebuf(char *buf, char *key){
 	else{
 		return -1;
 	}
+	return 0;
 }
 
 void watcher(zhandle_t *zzh, int type, int state, const char *path, void *watcherCtx) {

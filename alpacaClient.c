@@ -15,13 +15,13 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+#include <pthread.h>
 
 #include "switchconfig.h"
 #include "responsemessageconfig.h"
 #include "commonconfig.h"
 #include "alpacaClient.h"
 #include "urlencode.h"
-#include "blockrequestqueue.h"
 #include "md5.h"
 #include "alpaca_log.h"
 #include "alpaca_zookeeper.h"
@@ -159,7 +159,7 @@ void* healthCheckThread(void *arg){
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPAddressRate");	
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-			int err = curl_easy_perform(curl);
+			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
 		}
 		if(denyIPVidRateExpire < (int)time(NULL)){
@@ -167,7 +167,7 @@ void* healthCheckThread(void *arg){
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPVidRate");	
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-			int err = curl_easy_perform(curl);
+			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
 		}
 		if(denyVisterIDRateExpire < (int)time(NULL)){
@@ -175,7 +175,7 @@ void* healthCheckThread(void *arg){
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyVisterIDRate");	
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-			int err = curl_easy_perform(curl);
+			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
 		}
 		if(acceptIPPrefixCount == 0 && first_time != 0){
@@ -184,7 +184,7 @@ void* healthCheckThread(void *arg){
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "acceptIPPrefix");	
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-			int err = curl_easy_perform(curl);
+			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
 		}
 		sleep(300);
@@ -658,18 +658,18 @@ int is_empty_string(char* buf, int buflen){
 void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 	if(switchconfig->enable == 1){
 		lua_getglobal(L,"block");              
-		lua_pushlstring(L, context->clientIP, context->clientIP_len);
-		lua_pushlstring(L, context->userAgent, context->userAgent_len);
-		lua_pushlstring(L, context->httpMethod, context->httpMethod_len);
-		lua_pushlstring(L, context->rawUrl, context->rawUrl_len);
+		lua_pushlstring(L, (char*)context->clientIP, context->clientIP_len);
+		lua_pushlstring(L, (char*)context->userAgent, context->userAgent_len);
+		lua_pushlstring(L, (char*)context->httpMethod, context->httpMethod_len);
+		lua_pushlstring(L, (char*)context->rawUrl, context->rawUrl_len);
 		if(context->visitId_len == 0){
 			lua_pushlstring(L, " ", 1);
 		}
 		else{
-			lua_pushlstring(L, context->visitId, context->visitId_len);
+			lua_pushlstring(L, (char*)context->visitId, context->visitId_len);
 		}
-		lua_pushlstring(L, context->domain, context->domain_len);
-		int ret = lua_pcall(L,6,1,0);
+		lua_pushlstring(L, (char*)context->domain, context->domain_len);
+		lua_pcall(L,6,1,0);
 		int judge = lua_tonumber(L, 1);
 		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "hupeng test block number %d", judge);
 		lua_pop(L, 1);

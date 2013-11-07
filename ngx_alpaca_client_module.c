@@ -3,12 +3,14 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_channel.h>
 
 #include <zookeeper/zookeeper.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 #include <curl/curl.h>
+#include <pthread.h>
 
 #include "alpacaClient.h"
 #include "responsemessageconfig.h"
@@ -49,7 +51,6 @@ static ngx_int_t ngx_alpaca_client_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_alpaca_client_init(ngx_conf_t *cf);
 static void *ngx_alpaca_client_create_main_conf(ngx_conf_t *cf);
 char *ngx_alpaca_client_init_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static ngx_int_t ngx_alpaca_client_init_zone(ngx_shm_zone_t *shm_zone, void *data);
 void getVisitId(ngx_alpaca_client_main_conf_t *aclc);
 
 static void *ngx_proc_send_create_conf(ngx_conf_t *cf);
