@@ -220,7 +220,7 @@ void set_table(char* buf, char* value, ngx_log_t* log){
 }
 
 void update_zk_value(char* key, char* buf, ngx_event_t *ev){
-	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "%s, %s", key, buf);
+	//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "%s, %s", key, buf);
 	if(ngx_strcmp(key, "alpaca.filter.enable") == 0){
 		set_int(buf, &switchconfig->enable);
 		set_string(buf, &switchconfig->string_enable);
@@ -345,20 +345,23 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 	int num = 0;
 	while(1){
 		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, DEFAULT_PIPE_SIZE);
-		if(num == -1){
-			alpaca_log_wirte(ALPACA_WARN, "read zookeeper info fail!");
+		if(num < 0){
+			alpaca_log_wirte(ALPACA_WARN, " pipe empty!");
 			break;
+		}
+		if(num == 0){
+			continue;
 		}
 		strncpy(buf + p, tmp, num);
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
-		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
+		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 		p = p + num;
-		if(num < 0){
-			break;
-		}
 	}
-
-	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %s", buf);
+	if(strncmp(buf, '\0', 1) == 0){
+		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "hupeng test buf[0]");
+		return;
+	}
+	//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %s", buf);
 
 	char* start = NULL;
 	char* end = NULL;
@@ -373,16 +376,16 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 			point = point + 2;
 			continue;
 		}
-		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
+		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
 		ngx_memcpy(keyname, start + ngx_strlen(ZOOKEEPERROUTE), (end - start) - ngx_strlen(ZOOKEEPERROUTE));
 		point = end + 2;
 		start = point;
 		end = strstr(start, "\r\r\n\n");
 		if(!end){
-			ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
+			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
 			break;
 		}
-		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
+		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
 		ngx_memcpy(value, start, (end - start));
 		update_zk_value(keyname, value, ev);
 		ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
