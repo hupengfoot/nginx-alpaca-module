@@ -207,7 +207,7 @@ ngx_module_t  ngx_alpaca_client_module = {
 	NULL,                                  /* exit master */
 	NGX_MODULE_V1_PADDING
 };
-	
+
 void set_table(char* buf, char* value, ngx_log_t* log){
 	lua_getglobal(L,"decode");              
 	lua_pushstring(L, value);
@@ -342,7 +342,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 	ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
 	ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
 	int p = 0;
-	int num = 1;
+	int num = 0;
 	while(1){
 		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, DEFAULT_PIPE_SIZE);
 		if(num == -1){
@@ -353,13 +353,13 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 		p = p + num;
-		if(num != DEFAULT_PIPE_SIZE){
+		if(num < 0){
 			break;
 		}
 	}
-	
+
 	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %s", buf);
-	
+
 	char* start = NULL;
 	char* end = NULL;
 	char* point = buf;
@@ -420,11 +420,11 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 
 	set_table("{\"post\":[\"all\"],\"get\":[\"all\"]}", "alpaca.policy.acceptHttpMethod", cycle->log);
 	set_string("{\"post\":[\"all\"],\"get\":[\"all\"]}", &policyconfig->acceptHttpMethod);
-	
+
 	CURL *curl;
 	curl = curl_easy_init();
 	char url[100];
-        ngx_memset(url, 0, 100);
+	ngx_memset(url, 0, 100);
 	sprintf(url, "%s:%d/", "http://127.0.0.1", send_process_listen_port);	
 	curl_easy_setopt(curl, CURLOPT_URL, url);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
@@ -499,6 +499,13 @@ ngx_alpaca_client_init(ngx_conf_t *cf)
 	int i = 0;
 	for(i = 0; i < ccf->worker_processes; i++){
 		socketpair(AF_UNIX, SOCK_STREAM, 0, alpaca_pipe[i].pipefd);
+		int flags;
+		flags = fcntl(alpaca_pipe[i].pipefd[1], F_GETFL);
+		flags |= O_NONBLOCK;
+		if (fcntl(alpaca_pipe[i].pipefd[1], F_SETFL, flags) == -1) {
+			perror("fcntl");
+			exit(1);
+		}
 	}
 
 	alpaca_worker_processes = ccf->worker_processes;
