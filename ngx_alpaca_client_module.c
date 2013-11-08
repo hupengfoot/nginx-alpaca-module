@@ -358,27 +358,27 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
 				pipe_buf_end = pipe_buf_end + num;
 			}
-			else{
-				if(num < DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end + pipe_buf_start){
-					ngx_memcpy(pipe_buf + pipe_buf_end, tmp, DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
-					ngx_memcpy(pipe_buf, tmp + DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end, num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end));
-					pipe_buf_end = num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
-				}
-				else{
-				}
-			}
+	//		else{
+	//			if(num < DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end + pipe_buf_start){
+	//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+	//				ngx_memcpy(pipe_buf, tmp + DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end, num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end));
+	//				pipe_buf_end = num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+	//			}
+	//			else{
+	//			}
+	//		}
 		}
-		else{
-			if(num < pipe_buf_start - pipe_buf_end){
-				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
-				pipe_buf_end = pipe_buf_end + num;
-			}
-		}
+//		else{
+//			if(num < pipe_buf_start - pipe_buf_end){
+//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
+//				pipe_buf_end = pipe_buf_end + num;
+//			}
+//		}
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 	}
 
-	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %d, %d", pipe_buf_start, pipe_buf_end);
+	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %d, %d, %s", pipe_buf_start, pipe_buf_end, pipe_buf);
 	char* start = NULL;
 	char* end = NULL;
 	char* point = pipe_buf + pipe_buf_start;
@@ -386,13 +386,14 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		if(pipe_buf_end == pipe_buf_start){
 			pipe_buf_end = 0;
 			pipe_buf_start = 0;
+			ngx_memset(pipe_buf, 0, DEFAULT_ALPACA_PIPE_BUF);
 			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "pipe done!");
 			break;
 		}
 
 		start = point;
 		end = strstr(start, "\r\n");
-		if(!end){
+		if(!end || (unsigned long)end - (unsigned long)pipe_buf > (unsigned long)pipe_buf_end){
 			break;
 		}
 		if(((unsigned long)end - (unsigned long)start) < ngx_strlen(ZOOKEEPERROUTE)){
@@ -402,14 +403,17 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
 		ngx_memcpy(keyname, start + ngx_strlen(ZOOKEEPERROUTE), (end - start) - ngx_strlen(ZOOKEEPERROUTE));
 		start = end + 2;
+		end = NULL;
 		end = strstr(start, "\r\r\n\n");
-		if(!end){
+		if(!end || (unsigned long)end  - (unsigned long)pipe_buf > (unsigned long)pipe_buf_end){
 			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
+			ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
+			ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
 			break;
 		}
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
 		ngx_memcpy(value, start, (end - start));
-		pipe_buf_start = (unsigned int)end - (unsigned int)point + 4 + pipe_buf_start;
+		pipe_buf_start = (unsigned long)end - (unsigned long)point + 4 + pipe_buf_start;
 		update_zk_value(keyname, value, ev);
 		ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
 		ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
@@ -432,7 +436,6 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	if (luaL_loadfile(L,lua_filename) || lua_pcall(L,0,0,0)) {
 		return NGX_ERROR;
 	}
-
 
 	switchconfig = malloc(sizeof(SwitchConfig));
 	commonconfig = malloc(sizeof(CommonConfig));
