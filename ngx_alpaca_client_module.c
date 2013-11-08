@@ -38,6 +38,9 @@ int volatile denyIPAddressRateExpire;
 int volatile denyIPVidRateExpire;
 int volatile denyVisterIDRateExpire;
 int volatile acceptIPPrefixCount = 0;
+static char pipe_buf[DEFAULT_ALPACA_PIPE_BUF];
+static int pipe_buf_start;
+static int pipe_buf_end;
 
 typedef struct {
 	ngx_flag_t       enable;
@@ -334,39 +337,59 @@ void update_zk_value(char* key, char* buf, ngx_event_t *ev){
 
 static void ngx_pipe_handler(ngx_event_t *ev){
 	char tmp[DEFAULT_PIPE_SIZE];
-	char buf[DEFAULT_ALPACA_PIPE_BUF];
 	char keyname[DEFAULT_ALPACA_KEY_MAX_LEN];
 	char value[DEFAULT_ALPACA_PIPE_BUF];
-	ngx_memset(buf, 0, DEFAULT_ALPACA_PIPE_BUF);
 	ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 	ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
 	ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
-	int p = 0;
 	int num = 0;
 	while(1){
 		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, DEFAULT_PIPE_SIZE);
 		if(num < 0){
+			ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 			alpaca_log_wirte(ALPACA_WARN, " pipe empty!");
 			break;
 		}
 		if(num == 0){
 			continue;
 		}
-		strncpy(buf + p, tmp, num);
+		if(pipe_buf_start <= pipe_buf_end){
+			if(num <= DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end){
+				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
+				pipe_buf_end = pipe_buf_end + num;
+			}
+			else{
+				if(num < DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end + pipe_buf_start){
+					ngx_memcpy(pipe_buf + pipe_buf_end, tmp, DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+					ngx_memcpy(pipe_buf, tmp + DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end, num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end));
+					pipe_buf_end = num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+				}
+				else{
+				}
+			}
+		}
+		else{
+			if(num < pipe_buf_start - pipe_buf_end){
+				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
+				pipe_buf_end = pipe_buf_end + num;
+			}
+		}
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
-		p = p + num;
 	}
-	if(strncmp(buf, '\0', 1) == 0){
-		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "hupeng test buf[0]");
-		return;
-	}
-	//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %s", buf);
 
+	ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve from pipe  %d, %d", pipe_buf_start, pipe_buf_end);
 	char* start = NULL;
 	char* end = NULL;
-	char* point = buf;
+	char* point = pipe_buf + pipe_buf_start;
 	while(1){
+		if(pipe_buf_end == pipe_buf_start){
+			pipe_buf_end = 0;
+			pipe_buf_start = 0;
+			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "pipe done!");
+			break;
+		}
+
 		start = point;
 		end = strstr(start, "\r\n");
 		if(!end){
@@ -376,10 +399,9 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 			point = point + 2;
 			continue;
 		}
-		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
+		ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update keyname length %d", (end - start));
 		ngx_memcpy(keyname, start + ngx_strlen(ZOOKEEPERROUTE), (end - start) - ngx_strlen(ZOOKEEPERROUTE));
-		point = end + 2;
-		start = point;
+		start = end + 2;
 		end = strstr(start, "\r\r\n\n");
 		if(!end){
 			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
@@ -387,6 +409,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		}
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
 		ngx_memcpy(value, start, (end - start));
+		pipe_buf_start = (unsigned int)end - (unsigned int)point + 4 + pipe_buf_start;
 		update_zk_value(keyname, value, ev);
 		ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
 		ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
