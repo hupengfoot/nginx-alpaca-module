@@ -509,7 +509,6 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getHttpParam(u_char** in, ngx_http_request_t *r){
-	u_char *before = *in;
 	if(!visitId){
 		*in = NULL;
 		return 0;
@@ -541,7 +540,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 			}
 		}
 		else{
-			end = before + (cookies[i])->value.len - 1;
+			end = (char*)(cookies[i])->value.data + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
 		if(strncmp((char*)*in, "\"", 1) == 0){
