@@ -540,7 +540,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 			}
 		}
 		else{
-			end = (char*)(cookies[i])->value.data + (cookies[i])->value.len - 1;
+			end = (u_char*)(cookies[i])->value.data + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
 		if(strncmp((char*)*in, "\"", 1) == 0){
