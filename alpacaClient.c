@@ -509,6 +509,7 @@ int isFirewallRequest(ngx_http_request_t *r){
 }
 
 int getHttpParam(u_char** in, ngx_http_request_t *r){
+	u_char *before = *in;
 	if(!visitId){
 		*in = NULL;
 		return 0;
@@ -521,7 +522,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 	int i = 0;
 	for(i = 0; i < (int)r->headers_in.cookies.nelts; i++){
 
-		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);// _hc.v need config
+		*in = (u_char*)strstr((char*)(cookies[i])->value.data, visitId);
 		if(*in == NULL){
 			continue;
 		}
@@ -540,7 +541,7 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 			}
 		}
 		else{
-			end = *in + (cookies[i])->value.len - 1;
+			end = before + (cookies[i])->value.len - 1;
 		}
 		*in = *in + strlen(visitId) + 1;
 		if(strncmp((char*)*in, "\"", 1) == 0){
