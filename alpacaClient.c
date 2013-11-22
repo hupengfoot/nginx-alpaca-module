@@ -156,7 +156,15 @@ void* healthCheckThread(void *arg){
 	while(1){
 		if(denyIPAddressRateExpire < (int)time(NULL)){
 			curl = curl_easy_init();
-			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPAddressRate");	
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyipaddressrate");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+
+			curl = curl_easy_init();
+			memset(url, 0, 100);
+			sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyipaddressrate!", local_ip);
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 			curl_easy_perform(curl);
@@ -164,24 +172,50 @@ void* healthCheckThread(void *arg){
 		}
 		if(denyIPVidRateExpire < (int)time(NULL)){
 			curl = curl_easy_init();
-			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPVidRate");	
+			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyIPVidRate");
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
+			
+			curl = curl_easy_init();
+			memset(url, 0, 100);
+			sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyIPVidRate!", local_ip);
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+
 		}
 		if(denyVisterIDRateExpire < (int)time(NULL)){
 			curl = curl_easy_init();
-			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyVisterIDRate");	
+			sprintf(url, "%s:%d/%s%s", "http://127.0.0.1", send_process_listen_port, "denyVisterIDRate", local_ip);	
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
+
+			curl = curl_easy_init();
+			memset(url, 0, 100);
+			sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyVisterIDRate!", local_ip);
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+
 		}
 		if(acceptIPPrefixCount == 0 && first_time != 0){
 			first_time ++;
 			curl = curl_easy_init();
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "acceptIPPrefix");	
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			curl_easy_perform(curl);
+			curl_easy_cleanup(curl);
+
+			curl = curl_easy_init();
+			memset(url, 0, 100);
+			sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_acceptIPPrefix!", local_ip);
 			curl_easy_setopt(curl, CURLOPT_URL, url);
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 			curl_easy_perform(curl);

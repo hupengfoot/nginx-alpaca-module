@@ -459,6 +459,14 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
+
+	curl = curl_easy_init();
+	ngx_memset(url, 0, 100);
+	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "a_new_worker_start!", local_ip);
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
+	curl_easy_perform(curl);
+	curl_easy_cleanup(curl);
 	return NGX_OK;
 }
 
