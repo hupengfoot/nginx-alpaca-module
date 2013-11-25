@@ -1,7 +1,3 @@
-
-width = 20;
-height = 30;
-
 blockByVid = "false";
 blockByVidOnly = "false";
 
