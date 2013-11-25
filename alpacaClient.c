@@ -693,7 +693,12 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 	if(switchconfig->enable == 1){
 		lua_getglobal(L,"block");              
 		lua_pushlstring(L, (char*)context->clientIP, context->clientIP_len);
-		lua_pushlstring(L, (char*)context->userAgent, context->userAgent_len);
+		if(context->userAgent_len == 0){
+			lua_pushlstring(L, " ", 1);
+		}
+		else{
+			lua_pushlstring(L, (char*)context->userAgent, context->userAgent_len);
+		}
 		lua_pushlstring(L, (char*)context->httpMethod, context->httpMethod_len);
 		lua_pushlstring(L, (char*)context->rawUrl, context->rawUrl_len);
 		if(context->visitId_len == 0){
