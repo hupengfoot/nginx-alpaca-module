@@ -41,6 +41,7 @@ int volatile acceptIPPrefixCount = 0;
 static char pipe_buf[DEFAULT_ALPACA_PIPE_BUF];
 static int pipe_buf_start;
 static int pipe_buf_end;
+static int heartbeat_started = 0;
 
 typedef struct {
 	ngx_flag_t       enable;
@@ -171,7 +172,7 @@ static ngx_command_t  ngx_alpaca_client_commands[] = {
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_alpaca_client_main_conf_t, denyratemessage),
 		NULL },
-	{ ngx_string("lua_file"),
+	{ ngx_string("alpaca_lua_file"),
 		NGX_HTTP_MAIN_CONF|NGX_CONF_FLAG,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
@@ -358,22 +359,22 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
 				pipe_buf_end = pipe_buf_end + num;
 			}
-	//		else{
-	//			if(num < DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end + pipe_buf_start){
-	//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
-	//				ngx_memcpy(pipe_buf, tmp + DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end, num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end));
-	//				pipe_buf_end = num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
-	//			}
-	//			else{
-	//			}
-	//		}
+			//		else{
+			//			if(num < DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end + pipe_buf_start){
+			//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+			//				ngx_memcpy(pipe_buf, tmp + DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end, num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end));
+			//				pipe_buf_end = num - (DEFAULT_ALPACA_PIPE_BUF - pipe_buf_end);
+			//			}
+			//			else{
+			//			}
+			//		}
 		}
-//		else{
-//			if(num < pipe_buf_start - pipe_buf_end){
-//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
-//				pipe_buf_end = pipe_buf_end + num;
-//			}
-//		}
+		//		else{
+		//			if(num < pipe_buf_start - pipe_buf_end){
+		//				ngx_memcpy(pipe_buf + pipe_buf_end, tmp, num);
+		//				pipe_buf_end = pipe_buf_end + num;
+		//			}
+		//		}
 		ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "recieve  pipe buffer %d", num);
 	}
@@ -725,7 +726,7 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 	ngx_memset(commonconfig, 0, sizeof(CommonConfig));
 
 	init_config_watch(zookeeper_addr);
-	
+
 	CURL *curl;
 	char url[100];
 	ngx_memset(url, 0, 100);
@@ -744,14 +745,16 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 	static ngx_int_t
 ngx_proc_send_loop(ngx_cycle_t *cycle)
 {
-	pthread_t tid;
-	void* (*ptr)(void *arg);
-	ptr = heartbeatcycle;
-	int err1 = pthread_create(&tid, NULL, ptr, cycle);
-	if(err1){
-		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "create heartbeatcycle thread fail!" );
+	if(heartbeat_started == 0){
+		pthread_t tid;
+		void* (*ptr)(void *arg);
+		ptr = heartbeatcycle;
+		int err1 = pthread_create(&tid, NULL, ptr, cycle);
+		if(err1){
+			ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "create heartbeatcycle thread fail!" );
+		}
+		heartbeat_started = 1;
 	}
-	sleep(1);
 	return NGX_OK;
 }
 
