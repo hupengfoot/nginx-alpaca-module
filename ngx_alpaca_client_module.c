@@ -348,7 +348,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		num = read(alpaca_pipe[ngx_process_slot].pipefd[1], tmp, DEFAULT_PIPE_SIZE);
 		if(num < 0){
 			ngx_memset(tmp, 0, DEFAULT_PIPE_SIZE);
-			alpaca_log_wirte(ALPACA_WARN, " pipe empty!");
+			//alpaca_log_wirte(ALPACA_WARN, " pipe empty!");
 			break;
 		}
 		if(num == 0){
@@ -461,13 +461,17 @@ ngx_alpaca_init_process(ngx_cycle_t *cycle){
 	curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
 
-	curl = curl_easy_init();
-	ngx_memset(url, 0, 100);
-	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "a_new_worker_start!", local_ip);
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
-	curl_easy_perform(curl);
-	curl_easy_cleanup(curl);
+	char buf[100];
+	ngx_memset(buf, 0, 100);
+	sprintf(buf, "%s%s", "a new worker start! ", local_ip);
+	alpaca_log_wirte(ALPACA_WARN, buf);
+//	curl = curl_easy_init();
+//	ngx_memset(url, 0, 100);
+//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "a_new_worker_start!", local_ip);
+//	curl_easy_setopt(curl, CURLOPT_URL, url);
+//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
+//	curl_easy_perform(curl);
+//	curl_easy_cleanup(curl);
 	return NGX_OK;
 }
 
@@ -727,16 +731,21 @@ ngx_proc_send_process_init(ngx_cycle_t *cycle)
 
 	init_config_watch(zookeeper_addr);
 
-	CURL *curl;
-	char url[100];
-	ngx_memset(url, 0, 100);
+//	CURL *curl;
+//	char url[100];
+//	ngx_memset(url, 0, 100);
+//
+//	curl = curl_easy_init();
+//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "a_new_sender_start!", local_ip);
+//	curl_easy_setopt(curl, CURLOPT_URL, url);
+//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
+//	curl_easy_perform(curl);
+//	curl_easy_cleanup(curl);
 
-	curl = curl_easy_init();
-	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "a_new_sender_start!", local_ip);
-	curl_easy_setopt(curl, CURLOPT_URL, url);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 1);
-	curl_easy_perform(curl);
-	curl_easy_cleanup(curl);
+	char buf[100];
+	ngx_memset(buf, 0, 100);
+	sprintf(buf, "%s%s", "a new sender start! ", local_ip);
+	alpaca_log_wirte(ALPACA_WARN, buf);
 
 	return NGX_OK;
 }
