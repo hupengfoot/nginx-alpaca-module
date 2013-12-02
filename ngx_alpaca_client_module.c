@@ -395,6 +395,9 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		start = point;
 		end = strstr(start, "\r\n");
 		if(!end || (unsigned long)end - (unsigned long)pipe_buf > (unsigned long)pipe_buf_end){
+			pipe_buf_end = 0;
+			pipe_buf_start = 0;
+			ngx_memset(pipe_buf, 0, DEFAULT_ALPACA_PIPE_BUF);
 			break;
 		}
 		if(((unsigned long)end - (unsigned long)start) < ngx_strlen(ZOOKEEPERROUTE)){
@@ -408,6 +411,9 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		end = strstr(start, "\r\r\n\n");
 		if(!end || (unsigned long)end  - (unsigned long)pipe_buf > (unsigned long)pipe_buf_end){
 			//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "can`t resolve %s", start);
+			pipe_buf_end = 0;
+			pipe_buf_start = 0;
+			ngx_memset(pipe_buf, 0, DEFAULT_ALPACA_PIPE_BUF);
 			ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
 			ngx_memset(value, 0, DEFAULT_ALPACA_PIPE_BUF);
 			break;
