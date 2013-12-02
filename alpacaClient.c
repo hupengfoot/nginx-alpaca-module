@@ -166,13 +166,13 @@ void* healthCheckThread(void *arg){
 			ngx_memset(buf, 0, 100);
 			sprintf(buf, "%s%s", "long time no update denyipaddressrate! ", local_ip);
 			alpaca_log_wirte(ALPACA_WARN, buf);
-		//	curl = curl_easy_init();
-		//	memset(url, 0, 100);
-		//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyipaddressrate!", local_ip);
-		//	curl_easy_setopt(curl, CURLOPT_URL, url);
-		//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-		//	curl_easy_perform(curl);
-		//	curl_easy_cleanup(curl);
+			//	curl = curl_easy_init();
+			//	memset(url, 0, 100);
+			//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyipaddressrate!", local_ip);
+			//	curl_easy_setopt(curl, CURLOPT_URL, url);
+			//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			//	curl_easy_perform(curl);
+			//	curl_easy_cleanup(curl);
 		}
 		if(denyIPVidRateExpire < (int)time(NULL)){
 			curl = curl_easy_init();
@@ -181,18 +181,18 @@ void* healthCheckThread(void *arg){
 			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 			curl_easy_perform(curl);
 			curl_easy_cleanup(curl);
-			
+
 			char buf[100];
 			ngx_memset(buf, 0, 100);
 			sprintf(buf, "%s%s", "long time no update denyIPVidRate! ", local_ip);
 			alpaca_log_wirte(ALPACA_WARN, buf);
-		//	curl = curl_easy_init();
-		//	memset(url, 0, 100);
-		//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyIPVidRate!", local_ip);
-		//	curl_easy_setopt(curl, CURLOPT_URL, url);
-		//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-		//	curl_easy_perform(curl);
-		//	curl_easy_cleanup(curl);
+			//	curl = curl_easy_init();
+			//	memset(url, 0, 100);
+			//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyIPVidRate!", local_ip);
+			//	curl_easy_setopt(curl, CURLOPT_URL, url);
+			//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			//	curl_easy_perform(curl);
+			//	curl_easy_cleanup(curl);
 
 		}
 		if(denyVisterIDRateExpire < (int)time(NULL)){
@@ -207,13 +207,13 @@ void* healthCheckThread(void *arg){
 			ngx_memset(buf, 0, 100);
 			sprintf(buf, "%s%s", "long time no update denyVisterIDRate! ", local_ip);
 			alpaca_log_wirte(ALPACA_WARN, buf);
-		//	curl = curl_easy_init();
-		//	memset(url, 0, 100);
-		//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyVisterIDRate!", local_ip);
-		//	curl_easy_setopt(curl, CURLOPT_URL, url);
-		//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-		//	curl_easy_perform(curl);
-		//	curl_easy_cleanup(curl);
+			//	curl = curl_easy_init();
+			//	memset(url, 0, 100);
+			//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_denyVisterIDRate!", local_ip);
+			//	curl_easy_setopt(curl, CURLOPT_URL, url);
+			//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			//	curl_easy_perform(curl);
+			//	curl_easy_cleanup(curl);
 
 		}
 		if(acceptIPPrefixCount == 0 && first_time != 0){
@@ -229,13 +229,13 @@ void* healthCheckThread(void *arg){
 			ngx_memset(buf, 0, 100);
 			sprintf(buf, "%s%s", "long time no update acceptIPPrefix! ", local_ip);
 			alpaca_log_wirte(ALPACA_WARN, buf);
-		//	curl = curl_easy_init();
-		//	memset(url, 0, 100);
-		//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_acceptIPPrefix!", local_ip);
-		//	curl_easy_setopt(curl, CURLOPT_URL, url);
-		//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
-		//	curl_easy_perform(curl);
-		//	curl_easy_cleanup(curl);
+			//	curl = curl_easy_init();
+			//	memset(url, 0, 100);
+			//	sprintf(url, "%s:%d/hupeng?%s%s", "http://127.0.0.1", DEFAULT_ALARM_SERVICE_LISTEN_PORT, "long_time_no_update_acceptIPPrefix!", local_ip);
+			//	curl_easy_setopt(curl, CURLOPT_URL, url);
+			//	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+			//	curl_easy_perform(curl);
+			//	curl_easy_cleanup(curl);
 		}
 		sleep(300);
 	}	
@@ -687,8 +687,13 @@ Context* getRequestContext(ngx_http_request_t *r){
 	result->rawUrl = r->unparsed_uri.data;
 	result->rawUrl_len = r->unparsed_uri.len;
 	result->visitId_len = getHttpParam(&result->visitId, r);
-	result->domain = r->headers_in.host->value.data;
-	result->domain_len = r->headers_in.host->value.len;
+	if(r->headers_in.host){
+		result->domain = r->headers_in.host->value.data;
+		result->domain_len = r->headers_in.host->value.len;
+	}
+	else{
+		result->domain_len = 0;
+	}
 	return result;
 }
 
@@ -723,7 +728,12 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 		else{
 			lua_pushlstring(L, (char*)context->visitId, context->visitId_len);
 		}
-		lua_pushlstring(L, (char*)context->domain, context->domain_len);
+		if(context->domain_len == 0){
+			lua_pushlstring(L, " ", 1);
+		}
+		else{
+			lua_pushlstring(L, (char*)context->domain, context->domain_len);
+		}
 		lua_pcall(L,6,1,0);
 		int judge = lua_tonumber(L, 1);
 		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "hupeng test block number %d", judge);
