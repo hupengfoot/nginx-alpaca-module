@@ -423,7 +423,7 @@ static void ngx_pipe_handler(ngx_event_t *ev){
 		//ngx_log_error(NGX_LOG_INFO, ev->log, ngx_errno, "update value length %d", (end - start));
 		ngx_memcpy(value, start, (end - start));
 		pipe_buf_start = (unsigned long)end - (unsigned long)point + 4 + pipe_buf_start;
-		if(keyname){
+		if(ngx_strlen(keyname) != 0){
 			update_zk_value(keyname, value, ev);
 		}
 		ngx_memset(keyname, 0, DEFAULT_ALPACA_KEY_MAX_LEN);
