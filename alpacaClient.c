@@ -155,6 +155,7 @@ void* healthCheckThread(void *arg){
 	denyVisterIDRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
 	int first_time = 0 ;
 	while(1){
+		sleep(5);
 		curl = curl_easy_init();
 		ngx_memset(url, 0, 100);
 		sprintf(url, "%s:%d/", "http://127.0.0.1", send_process_listen_port);	
