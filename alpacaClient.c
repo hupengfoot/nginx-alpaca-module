@@ -39,6 +39,7 @@ extern int volatile denyIPVidRateExpire;
 extern int volatile denyVisterIDRateExpire;
 extern int volatile acceptIPPrefixCount;
 extern int send_process_listen_port;
+extern char* lua_filename;
 
 void procrequest(ngx_http_request_t *r, Context *context);
 int handleInternalRequestIfNeeded(ngx_http_request_t *r, Context *context);
@@ -154,6 +155,14 @@ void* healthCheckThread(void *arg){
 	denyVisterIDRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
 	int first_time = 0 ;
 	while(1){
+		curl = curl_easy_init();
+		ngx_memset(url, 0, 100);
+		sprintf(url, "%s:%d/", "http://127.0.0.1", send_process_listen_port);	
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+		curl_easy_perform(curl);
+		curl_easy_cleanup(curl);
+
 		if(denyIPAddressRateExpire < (int)time(NULL)){
 			curl = curl_easy_init();
 			sprintf(url, "%s:%d/%s", "http://127.0.0.1", send_process_listen_port, "denyipaddressrate");	
@@ -738,6 +747,13 @@ void handleBlockRequestIfNeeded(Context *context, ngx_http_request_t *r){
 		int judge = lua_tonumber(L, 1);
 		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "hupeng test block number %d", judge);
 		lua_pop(L, 1);
+		if(judge == 0){       
+			lua_close(L);                                                          
+			L = luaL_newstate();                                               
+			luaL_openlibs(L);                                                 
+			luaL_loadfile(L,lua_filename);                                   
+			lua_pcall(L,0,0,0);                                             
+		}
 		context->status = judge;
 	}
 
