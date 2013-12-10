@@ -33,7 +33,7 @@ int allow_ua_empty = 0;
 u_char* zookeeper_addr;
 lua_State* L;
 char* lua_filename;
-int send_process_listen_port = 0;
+int send_process_listen_port = 8999;
 int volatile denyIPAddressRateExpire;
 int volatile denyIPVidRateExpire;
 int volatile denyVisterIDRateExpire;

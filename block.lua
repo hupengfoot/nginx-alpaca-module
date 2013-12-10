@@ -14,8 +14,12 @@ denyNOVisitorIDURL = {};
 denyVisterID = {};
 denyVisterIDRate = {};
 
+tmp_acceptHttpMethod = {};
+tmp_string = "{\"post\":[\"all\"],\"get\":[\"all\"]}";
+json = require "cjson";
+tmp_acceptHttpMethod = json.decode(tmp_string);
+
 function decode(key, str)
-	local json = require "cjson";
 	--local str = "{\"1.1.1.1,22222\":{\"tValue\":[\"all\",\"www.dianping.com\"],\"kValue\":\"3333-03-03 03:03:03\"}}";
 	--local str = "{\"Himi\":\"himigame.com\"}";
 	if(key == "alpaca.filter.blockByVid") then
@@ -50,7 +54,7 @@ function decode(key, str)
 end
 
 function lookupacceptHttpMethod(httpmethod, domain)
-	for key, value in pairs(acceptHttpMethod) do 
+	for key, value in pairs(tmp_acceptHttpMethod) do 
 		if(string.lower(key) == string.lower(httpmethod)) then
 			for n = 1, #value do
 				if(string.lower(value[n]) == string.lower(domain) or string.lower(value[n]) == "all") then
