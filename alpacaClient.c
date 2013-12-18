@@ -154,6 +154,7 @@ void* healthCheckThread(void *arg){
 	denyIPVidRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
 	denyVisterIDRateExpire = (int)time(NULL) + DEFAULT_LIST_EXPIRE_TIME;
 	int first_time = 0 ;
+	send_process_listen_port = 8999;
 	while(1){
 		sleep(5);
 		curl = curl_easy_init();
@@ -622,15 +623,26 @@ int getHttpParam(u_char** in, ngx_http_request_t *r){
 		}
 		return (end - (*in) + 1);
 	}
-	for(i = 0; i < (int)r->headers_in.headers.part.nelts; i ++){
-		if(strlen(visitId) != (unsigned int)(((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->key.len)){
+
+	ngx_list_part_t* part = NULL;
+	part = &r->headers_in.headers.part;
+
+	for(i = 0; ;i ++){
+		if (i >= part->nelts) {
+			if (part->next == NULL) {
+				break;
+			}
+			part = part->next;
+			i = 0;
+		}
+		if(strlen(visitId) != (unsigned int)(((ngx_table_elt_t*)part->elts + i)->key.len)){
 			continue;
 		}
-		if(strncmp(visitId, (char*)((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->key.data, strlen(visitId)) != 0){
+		if(strncmp(visitId, (char*)((ngx_table_elt_t*)part->elts + i)->key.data, strlen(visitId)) != 0){
 			continue;
 		}
-		*in = ((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->value.data;
-		return ((ngx_table_elt_t*)r->headers_in.headers.part.elts + i)->value.len;
+		*in = ((ngx_table_elt_t*)part->elts + i)->value.data;
+		return ((ngx_table_elt_t*)part->elts + i)->value.len;
 	}
 	*in = NULL;
 	return 0;
